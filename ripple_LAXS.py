@@ -4,7 +4,10 @@ import scipy.optimize
 
 def read_data(fileobj, skip=0):
   """
+  Read a four-column ASCII file and parse each column into a python list.
   
+  fileobj: input file object
+  skip: the number of header lines that will be skipped
   """
   # ignore the first skip lines
   for i in range(skip):
@@ -16,16 +19,14 @@ def read_data(fileobj, skip=0):
     hval, kval, qval, Fval = line.split()
     h.append(hval); k.append(kval); q.append(qval); F.append(Fval)
   
-  harr = np.array(h, int)
-  karr = np.array(k, int)
-  qarr = np.array(q, float)
-  Farr = np.array(F, float)  
-  return harr, karr, qarr, Farr
+  return h, k, q, F
   
 
 class Ripple:
-  """ The ripple class for fitting LAXS data and getting electron density 
-  profile. """
+  """ 
+  The ripple class for fitting LAXS data and getting electron density 
+  profile. 
+  """
   
   def __init__(self, h, k, q, F):
     self.hkqF = []
@@ -42,6 +43,7 @@ class Ripple:
 def q_x(k, lambda_r):
   """
   Return qx value in the ripple phase LAXS.
+  
   k: k index
   lambda_r: lambda_r, the ripple wavelength
   """
@@ -51,6 +53,7 @@ def q_x(k, lambda_r):
 def q_z(h, k, D, lambda_r, gamma):
   """
   Return qz value in the ripple phase LAXS.
+  
   h: h index
   k: k index
   D: D-spacing 
@@ -63,6 +66,7 @@ def q_z(h, k, D, lambda_r, gamma):
 def q_square(h, k, D, l, g):
   """ 
   Return q = qx^2 + qz^2 in the ripple phase LAXS.
+  
   h: h index
   k: k index
   D: D-spacing 
@@ -73,9 +77,14 @@ def q_square(h, k, D, l, g):
 
 
 def func(x, D, lambda_r, gamma):
-  """ x is an n-by-2 array, where the first column holds h values and the 
-  second column k values. n is the number of data points. D, lambda_r, and 
-  gamma are fitting parameters. """
+  """ 
+  A wrapper for q_square function to be used in the scipy.optimize.curve_fit().
+   
+  x: an n-by-2 array, where the first column holds h values and the 
+     second column k values; n is the number of data points
+  D: D-spacing
+  lambda_r: ripple wavelength 
+  gamma: gamma angle in the unit cell """
   return q_square(x[:,0], x[:,1], D, lambda_r, gamma)
 
 
