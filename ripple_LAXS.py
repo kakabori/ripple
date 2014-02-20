@@ -29,15 +29,20 @@ class Ripple:
   """
   
   def __init__(self, h, k, q, F):
-    self.hkqF = []
+    hk = []
+    qF = []
     for i in range(len(h)):
-      tmp = [h[i], k[i], q[i], F[i]]
-      self.hkqF.append(tmp)
+      hk.append([h[i], k[i]])
+      qF.append([q[i], F[i]])
+      
+    self.hk = np.array(hk, int)
+    self.qF = np.array(qF, float)
               
   def fit(self):
-    x = np.array(self.hkqF[:,:2], int)
-    y = self.hkqF[:,2] * self.hkqF[:,2]    
-    scipy.optimize.curve_fit(func, x, y)    
+    x = self.hk
+    y = self.qF[:,0] * self.qF[:,0]    
+    a = scipy.optimize.curve_fit(func, x, y)    
+    print a
 
 
 def q_x(k, lambda_r):
