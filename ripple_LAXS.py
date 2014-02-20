@@ -41,8 +41,16 @@ class Ripple:
   def fit(self):
     x = self.hk
     y = self.qF[:,0] * self.qF[:,0]    
-    a = scipy.optimize.curve_fit(func, x, y)    
-    print a
+    result = scipy.optimize.curve_fit(func, x, y)    
+    self.D = result[0][0]
+    self.lambda_r = result[0][1]
+    self.gamma = result[0][2]
+    self.D_err = result[1][0,0]
+    self.lambda_r_err = result[1][1,1]
+    self.gamma_err = result[1][2,2]
+    print "D:", self.D, "+/-", self.D_err
+    print "lambda_r:", self.lambda_r, "+/-", self.lambda_r_err
+    print "gamma:", self.gamma, "+/-", self.gamma_err
 
 
 def q_x(k, lambda_r):
@@ -93,14 +101,10 @@ def func(x, D, lambda_r, gamma):
   return q_square(x[:,0], x[:,1], D, lambda_r, gamma)
 
 
-if __name__ == 'main':
-  filename = 'WackWebb.dat'
+if __name__ == "__main__":
+  filename = "WackWebb.dat"
+  skip = 1
   infile = open(filename, 'r')
-  h, k, q, F = read_data(infile, 1)
+  h, k, q, F = read_data(infile, skip)
   obj = Ripple(h, k, q, F)
-  
-  
-filename = 'WackWebb.dat'
-infile = open(filename, 'r')
-h, k, q, F = read_data(infile, 1)
-myobj = Ripple(h, k, q, F)
+  obj.fit()
