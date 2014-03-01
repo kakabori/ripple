@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib as ppl
 import scipy.optimize
 import matplotlib.pyplot as plt
+from lmfit import minimize, Parameters
+import lmfit
 
 def read_data(fileobj, skip=0):
   """
@@ -57,27 +59,6 @@ class Ripple:
   def update(self):
     self.qx = q_x(self.k, self.lambda_r)
     self.qz = q_z(self.h, self.k, self.D, self.lambda_r, self.gamma)
-
-
-  def Fourier_decomp(self, N=201, xmin=-100, xmax=100, zmin=-100, zmax=100):
-    self.update()
-    self.phase = np.array([-1,  1, -1, -1, -1, 1, 1, -1, -1, -1, 
-                            1, -1,  1, -1,  1, 1, 1,  1, -1,  1])
-    rho_xz = []
-    xgrid = np.linspace(xmin, xmax, num=N)
-    zgrid = np.linspace(zmin, zmax, num=N)
-    for x in xgrid:
-      for z in zgrid:
-        tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
-        rho_xz.append([x, z, tmp.sum(axis=0)])
-    self.rho_xz = np.array(rho_xz, float)  
-    X = self.rho_xz[:,0]
-    Y = self.rho_xz[:,1]
-    Z = self.rho_xz[:,2]
-    X.shape = (N, N)
-    Y.shape = (N, N)
-    Z.shape = (N, N)
-    plt.contourf(X, Y, Z)
     
   
   def fit_SDF(self, par=None, error=None):
@@ -207,12 +188,120 @@ def func(x, D, lambda_r, gamma):
   return q_square(x[0], x[1], D, lambda_r, gamma)
 
 
+def F_trans(qx, qz, X_h, psi, rho_M, R_HM):
+  arg = qz*X_h*np.cos(psi) - qx*X_h*np.sin(psi)
+  return rho_M * (R_HM*np.cos(arg) - 1)
+
+
+def F_cont(qx, qz, x0, A, lambda_r):
+  w = omega(qx, qz, x0, A)
+  lr = lambda_r
+  arg1 = 0.5*qx*lr + w
+  arg2 = 0.5*qx*lr - w
+  fir = x0 * np.sin(w) / lambda_r / w
+  sec = (lr-x0) * np.cos(0.5*arg1) * np.sin(arg2) / lr / np.cos(0.5*arg2) / arg2 
+  return (fir + sec)
+
+
+def SDF_model(params, qx, qz):
+  """
+  
+  """
+  x0 = params['x0'].value
+  A = params['A'].value
+  rho_M = params['rho_M'].value
+  R_HM = params['R_HM'].value
+  X_h = params['X_h'].value
+  psi = params['psi'].value
+  lambda_r = params['lambda_r'].value
+
+  model = F_trans(qx, qz, X_h, psi, rho_M, R_HM) * F_cont(qx, qz, x0, A, lambda_r)
+
+  return model
+  
+  
+# define objective function: returns the array to be minimized
+def residual(params, qx, qz, data=None, sigma=None):
+  """
+  data: integrated intesity data
+  """
+  x0 = params['x0'].value
+  A = params['A'].value
+  rho_M = params['rho_M'].value
+  R_HM = params['R_HM'].value
+  X_h = params['X_h'].value
+  psi = params['psi'].value
+  lambda_r = params['lambda_r'].value
+  
+  # calculate intensity = form factor squared
+  model = (F_trans(qx, qz, X_h, psi, rho_M, R_HM) * 
+           F_cont(qx, qz, x0, A, lambda_r)) ** 2
+  
+  if data is None:
+    return model
+  if sigma is None:
+    return (data - model)
+  return (data-model) / sigma
+
+
+def Fourier_decomp(qx, qz, F, phase=None, N=201, xmin=-100, xmax=100, zmin=-100, zmax=100):
+    if phase is None:
+      phase = np.array([-1,  1, -1, -1, -1, 1,  1,  1, -1, -1, 
+                         1, -1,  1, -1,  1, 1, -1,  1, -1,  1])
+                         
+    rho_xz = []
+    xgrid = np.linspace(xmin, xmax, num=N)
+    zgrid = np.linspace(zmin, zmax, num=N)
+    for x in xgrid:
+      for z in zgrid:
+        tmp = phase * F * np.cos(qx*x+qz*z)
+        rho_xz.append([x, z, tmp.sum(axis=0)])
+    rho_xz = np.array(rho_xz, float)  
+    X = rho_xz[:,0]
+    Y = rho_xz[:,1]
+    Z = rho_xz[:,2]
+    X.shape = (N, N)
+    Y.shape = (N, N)
+    Z.shape = (N, N)
+    plt.contourf(X, Y, Z)
+  
+  
 if __name__ == "__main__":
+  # read data to be fitted
   filename = "WackWebb.dat"
   skip = 1
   infile = open(filename, 'r')
   h, k, q, F = read_data(infile, skip)
+  h = np.array(h, int)
+  k = np.array(k, int)
+  q = np.array(q, float)
+  F = np.array(F, float)
+  
+  # obtain lambda_r, D, and gamma using the Ripple class
   obj = Ripple(h, k, q, F)
   obj.fit()
-  p = np.array([103, 18.6, 3, 20, 20.1, 0.0873])
-  obj.fit_SDF(par=p)
+  D = obj.D
+  lambda_r = obj.lambda_r
+  gamma = obj.gamma
+  qx = q_x(k, lambda_r)
+  qz = q_z(h, k, D, lambda_r, gamma)
+  
+  params = Parameters()
+  params.add('x0', value = 20, vary=True)
+  params.add('A', value = 20, vary=True)
+  params.add('rho_M', value = 10, vary=True)
+  params.add('R_HM', value = 10, vary=True)
+  params.add('X_h', value = 20, vary=True)
+  params.add('psi', value = 0, vary=True)
+  params.add('lambda_r', value = lambda_r, vary=False)
+  
+  x = np.array(q, float)
+  data = np.array(F, float) ** 2
+  result = minimize(residual, params, args=(qx, qz, data))
+  lmfit.report_fit(params)
+  
+  #Fourier_decomp(qx, qz, F, phase=None, N=201, xmin=-100, xmax=100, zmin=-100, zmax=100):
+  
+  # Optimization using the Ripple class
+  #p = np.array([103, 18.6, 3, 20, 20.1, 0.0873])
+  #obj.fit_SDF(par=p)
