@@ -264,6 +264,11 @@ def Fourier_decomp(qx, qz, F, phase=None, N=201, xmin=-100, xmax=100, zmin=-100,
     Y.shape = (N, N)
     Z.shape = (N, N)
     plt.contourf(X, Y, Z)
+
+
+def get_phase(params, qx, qz):
+  tmp = SDF_model(params, qx, qz)
+  return np.sign(tmp)
   
   
 if __name__ == "__main__":
@@ -300,6 +305,7 @@ if __name__ == "__main__":
   result = minimize(residual, params, args=(qx, qz, data))
   lmfit.report_fit(params)
   
+  phase = get_phase(params, qx, qz)
   #Fourier_decomp(qx, qz, F, phase=None, N=201, xmin=-100, xmax=100, zmin=-100, zmax=100):
   
   # Optimization using the Ripple class
