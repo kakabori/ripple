@@ -42,8 +42,6 @@ class Ripple:
 
               
   def fit(self):
-<<<<<<< HEAD
-=======
     x = np.array([self.h, self.k])
     y = self.q * self.q    
     result = scipy.optimize.curve_fit(func, x, y)    
@@ -99,6 +97,7 @@ class Ripple:
     print "X_h:", self.X_h, "+/-", self.X_h_err
     print "psi:", self.psi, "+/-", self.psi_err
     
+  
   def SDF(self):
     """
     Run this after fit_SDF
@@ -107,7 +106,6 @@ class Ripple:
           F_C(self.k, self.qx, self.qz, self.x0, self.A, self.lambda_r)
     return ret
     
->>>>>>> 61df72a1b55cd09d53de6c60767157e06b0a0274
 
 def SDF(x, x0, A, lambda_r, rho_M, R_HM, X_h, psi):
   """
@@ -187,12 +185,8 @@ def func(x, D, lambda_r, gamma):
      second row k values; n is the number of data points
   D: D-spacing
   lambda_r: ripple wavelength 
-<<<<<<< HEAD
   gamma: gamma angle in the unit cell 
   """
-  return q_square(x[:,0], x[:,1], D, lambda_r, gamma)
-=======
-  gamma: gamma angle in the unit cell """
   return q_square(x[0], x[1], D, lambda_r, gamma)
 
 
@@ -200,7 +194,6 @@ def F_trans(qx, qz, X_h, psi, rho_M, R_HM):
   arg = qz*X_h*np.cos(psi) - qx*X_h*np.sin(psi)
   return rho_M * (R_HM*np.cos(arg) - 1)
 
->>>>>>> 61df72a1b55cd09d53de6c60767157e06b0a0274
 
 def F_cont(qx, qz, x0, A, lambda_r):
   w = omega(qx, qz, x0, A)
