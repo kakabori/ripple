@@ -35,7 +35,7 @@ class Ripple:
       self.hkqF.append(tmp)
               
   def fit(self):
-    x = np.array(self.hkqF[:,:2], int)
+    x = np.array(self.hkqF[:,:2])
     y = self.hkqF[:,2] * self.hkqF[:,2]    
     scipy.optimize.curve_fit(func, x, y)    
 
@@ -84,7 +84,8 @@ def func(x, D, lambda_r, gamma):
      second column k values; n is the number of data points
   D: D-spacing
   lambda_r: ripple wavelength 
-  gamma: gamma angle in the unit cell """
+  gamma: gamma angle in the unit cell 
+  """
   return q_square(x[:,0], x[:,1], D, lambda_r, gamma)
 
 
