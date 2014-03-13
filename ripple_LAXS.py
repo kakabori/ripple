@@ -221,6 +221,13 @@ def SDF_model(params, qx, qz):
 
   return model
   
+
+def MDF_model(params, qx, qz):
+  """
+  
+  """
+  
+
   
 # define objective function: returns the array to be minimized
 def residual(params, qx, qz, data=None, sigma=None):
@@ -293,21 +300,36 @@ if __name__ == "__main__":
   qx = q_x(k, lambda_r)
   qz = q_z(h, k, D, lambda_r, gamma)
   
+  # Work on SDF
   params = Parameters()
-  params.add('x0', value = 20, vary=True)
-  params.add('A', value = 20, vary=True)
-  params.add('rho_M', value = 10, vary=True)
-  params.add('R_HM', value = 10, vary=True)
-  params.add('X_h', value = 20, vary=True)
-  params.add('psi', value = 0, vary=True)
+  params.add('x0', value=20, vary=True)
+  params.add('A', value=20, vary=True)
+  params.add('rho_M', value=10, vary=True)
+  params.add('R_HM', value=10, vary=True)
+  params.add('X_h', value=20, vary=True)
+  params.add('psi', value=0, vary=True)
   params.add('lambda_r', value = lambda_r, vary=False)
   
   x = np.array(q, float)
   data = np.array(F, float) ** 2
   result = minimize(residual, params, args=(qx, qz, data))
   lmfit.report_fit(params)
-  
   phase = get_phase(params, qx, qz)
+  
+  # Work on MDF
+  params2 = Parameters()
+  params2.add('x0', value=20, vary=True)
+  params2.add('A', value=20, vary=True)
+  params2.add('rho_M', value=10, vary=True)
+  params2.add('R_HM', value=10, vary=True)
+  params2.add('X_h', value=20, vary=True)
+  params2.add('psi', value=0, vary=True)
+  params2.add('lambda_r', value = lambda_r, vary=False)
+  
+  result2 = minimize(residual2, params2, args=(qx, qz, data))
+  lmfit.report_fit(params2)
+  phase2 = get_phase(params2, qx, qz)
+  
   #Fourier_decomp(qx, qz, F, phase=None, N=201, xmin=-100, xmax=100, zmin=-100, zmax=100):
   
   # Optimization using the Ripple class
