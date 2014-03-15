@@ -207,7 +207,12 @@ def F_cont(qx, qz, x0, A, lambda_r):
 
 def SDF_model(params, qx, qz):
   """
+  Return the simple delta function. The return object is an numpy array with
+  its length equal to the length of qx.
   
+  params: lmfit Parameter object, requires x0, A, rho_M, R_HM, X_h, psi, and
+          lambda_r
+  qx, qz: numpy array. These must be in the same length
   """
   x0 = params['x0'].value
   A = params['A'].value
@@ -226,63 +231,62 @@ def MDF_model(params, qx, qz):
   """
   
   """
+  pass
   
 
   
 # define objective function: returns the array to be minimized
 def residual(params, qx, qz, data=None, sigma=None):
   """
-  data: integrated intesity data
+  Return the individual residuals. If data=None, return the model. If 
+  simga=None, return (data - model). Otherwise, return (data-model) / sigma.
+  model is the form factor squared, that is, intensity.
   """
-  x0 = params['x0'].value
-  A = params['A'].value
-  rho_M = params['rho_M'].value
-  R_HM = params['R_HM'].value
-  X_h = params['X_h'].value
-  psi = params['psi'].value
-  lambda_r = params['lambda_r'].value
   
   # calculate intensity = form factor squared
-  model = (F_trans(qx, qz, X_h, psi, rho_M, R_HM) * 
-           F_cont(qx, qz, x0, A, lambda_r)) ** 2
+  model = (SDF_model(params, qx, qz)) ** 2
   
   if data is None:
     return model
   if sigma is None:
-    return (data - model)
+    return (data - model) 
   return (data-model) / sigma
 
 
-def Fourier_decomp(qx, qz, F, phase=None, N=201, xmin=-100, xmax=100, zmin=-100, zmax=100):
-    if phase is None:
-      phase = np.array([-1,  1, -1, -1, -1, 1,  1,  1, -1, -1, 
-                         1, -1,  1, -1,  1, 1, -1,  1, -1,  1])
-                         
-    rho_xz = []
-    xgrid = np.linspace(xmin, xmax, num=N)
-    zgrid = np.linspace(zmin, zmax, num=N)
-    for x in xgrid:
-      for z in zgrid:
-        tmp = phase * F * np.cos(qx*x+qz*z)
-        rho_xz.append([x, z, tmp.sum(axis=0)])
-    rho_xz = np.array(rho_xz, float)  
-    X = rho_xz[:,0]
-    Y = rho_xz[:,1]
-    Z = rho_xz[:,2]
-    X.shape = (N, N)
-    Y.shape = (N, N)
-    Z.shape = (N, N)
-    plt.contourf(X, Y, Z)
+def Fourier_decomp(N=201, xmin=-100, xmax=100, zmin=-100, zmax=100):
+  rho_xz = []
+  xgrid = np.linspace(xmin, xmax, num=N)
+  zgrid = np.linspace(zmin, zmax, num=N)
+  for x in xgrid:
+    for z in zgrid:
+      tmp = phase * F * np.cos(qx*x+qz*z)
+      rho_xz.append([x, z, tmp.sum(axis=0)])
+  rho_xz = np.array(rho_xz, float)  
+  X = rho_xz[:,0]
+  Y = rho_xz[:,1]
+  Z = rho_xz[:,2]
+  X.shape = (N, N)
+  Y.shape = (N, N)
+  Z.shape = (N, N)
+  plt.contourf(X, Y, Z)
 
 
 def get_phase(params, qx, qz):
   tmp = SDF_model(params, qx, qz)
   return np.sign(tmp)
-  
+
+
+def show_model():
+  model = SDF_model(params, qx, qz)
+  print " h  k      qx     qz      q   model       F"
+  for a, b, c, d, e, f, g in zip(h, k, qx, qz, q, model, F):
+    print("{0: 1d} {1: 1d}  {2: .3f} {3: .3f} {4: .3f} {5: 7.2f} {6: 7.2f}"
+          .format(a, b, c, d, e, f, g))
+      
   
 if __name__ == "__main__":
   # read data to be fitted
-  filename = "WackWebb.dat"
+  filename = "WackWebb2.dat"
   skip = 1
   infile = open(filename, 'r')
   h, k, q, F = read_data(infile, skip)
@@ -302,12 +306,12 @@ if __name__ == "__main__":
   
   # Work on SDF
   params = Parameters()
-  params.add('x0', value=20, vary=True)
-  params.add('A', value=20, vary=True)
-  params.add('rho_M', value=10, vary=True)
-  params.add('R_HM', value=10, vary=True)
-  params.add('X_h', value=20, vary=True)
-  params.add('psi', value=0, vary=True)
+  params.add('x0', value=60.0, vary=True)
+  params.add('A', value=20.0, vary=True)
+  params.add('rho_M', value=1000.0, vary=True)
+  params.add('R_HM', value=2.0, vary=True)
+  params.add('X_h', value=20.0, vary=True)
+  params.add('psi', value=0.14, vary=True)
   params.add('lambda_r', value = lambda_r, vary=False)
   
   x = np.array(q, float)
