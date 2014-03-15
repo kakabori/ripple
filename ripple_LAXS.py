@@ -316,7 +316,7 @@ if __name__ == "__main__":
   lmfit.report_fit(params)
   phase = get_phase(params, qx, qz)
   
-  # Work on MDF
+  # Work on SGF
   params2 = Parameters()
   params2.add('x0', value=20, vary=True)
   params2.add('A', value=20, vary=True)
@@ -329,6 +329,13 @@ if __name__ == "__main__":
   result2 = minimize(residual2, params2, args=(qx, qz, data))
   lmfit.report_fit(params2)
   phase2 = get_phase(params2, qx, qz)
+  
+  
+  # Work on S1G
+  
+  # Work on MDF
+  
+  # Work on M1G
   
   #Fourier_decomp(qx, qz, F, phase=None, N=201, xmin=-100, xmax=100, zmin=-100, zmax=100):
   
