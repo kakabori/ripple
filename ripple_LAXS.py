@@ -25,12 +25,10 @@ def read_data(fileobj, skip=0):
   return h, k, q, F
   
 
-class Ripple:
+class Base_Ripple:
   """ 
-  The ripple class for fitting LAXS data and getting electron density 
-  profile. 
+  The base ripple class 
   """
-  
   def __init__(self, h, k, q, F):
     """
     
@@ -39,29 +37,45 @@ class Ripple:
     self.k = np.array(k, int)
     self.q = np.array(q, float)
     self.F = np.array(F, float)
-
-              
-  def fit(self):
+    self.params = Parameters()
+    self.params.add('D', value=58, vary=True)
+    self.params.add('lambda_r', value=140, vary=True)
+    self.params.add('gamma', value=1.7, vary=True)
+        
+  def fit_lattice(self):
     x = np.array([self.h, self.k])
-    y = self.q * self.q    
-    result = scipy.optimize.curve_fit(func, x, y)    
-    self.D = result[0][0]
-    self.lambda_r = result[0][1]
-    self.gamma = result[0][2]
-    self.D_err = result[1][0,0]
-    self.lambda_r_err = result[1][1,1]
-    self.gamma_err = result[1][2,2]
-    print "D:", self.D, "+/-", self.D_err
-    print "lambda_r:", self.lambda_r, "+/-", self.lambda_r_err
-    print "gamma:", self.gamma, "+/-", self.gamma_err
+    data = self.q * self.q
+    self.lattice = minimize(self.residual_lattice, self.params)    
 
-
+  def residual_lattice(self, params):
+    D = params['D'].value
+    lambda_r = params['lambda_r'].value
+    gamma = params['gamma'].value
+    
+    model = self.model(D, lambda_r, gamma)
+    data = self.q**2
+    return (model -data)
+  
   def update(self):
     self.qx = q_x(self.k, self.lambda_r)
     self.qz = q_z(self.h, self.k, self.D, self.lambda_r, self.gamma)
-        
-        
-def q_x(k, lambda_r):
+    
+  def model(self, D, lambda_r, gamma):
+ 
+  def q_square(h, k, D, l, g):
+  """ 
+  Return q = qx^2 + qz^2 in the ripple phase LAXS.
+  
+  h: h index
+  k: k index
+  D: D-spacing 
+  l: lambda_r, the ripple wavelength
+  g: gamma angle of the unit cell
+  """
+  h = self.h
+  return q_x(k, l)*q_x(k, l) + q_z(h, k, D, l, g)*q_z(h, k, D, l, g)    
+  
+  def q_x(k, lambda_r):
   """
   Return qx value in the ripple phase LAXS.
   
@@ -69,9 +83,8 @@ def q_x(k, lambda_r):
   lambda_r: lambda_r, the ripple wavelength
   """
   return 2*np.pi*k/lambda_r
-
-
-def q_z(h, k, D, lambda_r, gamma):
+  
+  def q_z(h, k, D, lambda_r, gamma):
   """
   Return qz value in the ripple phase LAXS.
   
@@ -82,32 +95,20 @@ def q_z(h, k, D, lambda_r, gamma):
   gamma: gamma angle of the unit cell
   """
   return 2*np.pi*(h/D - k/lambda_r/np.tan(gamma))
-
-
-def q_square(h, k, D, l, g):
-  """ 
-  Return q = qx^2 + qz^2 in the ripple phase LAXS.
   
-  h: h index
-  k: k index
-  D: D-spacing 
-  l: lambda_r, the ripple wavelength
-  g: gamma angle of the unit cell
-  """
-  return q_x(k, l)*q_x(k, l) + q_z(h, k, D, l, g)*q_z(h, k, D, l, g)    
+  
+        
+        
 
 
-def func(x, D, lambda_r, gamma):
-  """ 
-  A wrapper for q_square function to be used in the scipy.optimize.curve_fit().
-   
-  x: a 2-by-n array, where the first row holds h values and the 
-     second row k values; n is the number of data points
-  D: D-spacing
-  lambda_r: ripple wavelength 
-  gamma: gamma angle in the unit cell 
-  """
-  return q_square(x[0], x[1], D, lambda_r, gamma)
+
+
+
+
+
+
+
+
 
 
 def omega(qx, qz, x0, A):
