@@ -42,11 +42,21 @@ class BaseRipple:
     self.latt_par.add('D', value=D, vary=True)
     self.latt_par.add('lambda_r', value=lambda_r, vary=True)
     self.latt_par.add('gamma', value=gamma, vary=True)
-        
+
+  def set_phase(self):
+    """
+    model method needs to be defined in the subclasses
+    """
+    self.phase = np.sign(self.model())
+  
+  def report_lattice(self):
+    lmfit.report_fit(self.latt_par)
+    print("chisqr = {0:.3f}".format(self.lattice.chisqr))
+          
   def fit_lattice(self):
     self.lattice = minimize(self.residual_lattice, self.latt_par)    
-    self.qx = q_x()
-    self.qz = q_z()
+    self.qx = self._q_x()
+    self.qz = self._q_z()
 
   def residual_lattice(self, params):
     """
@@ -89,21 +99,23 @@ class BaseRipple:
 ###############################################################################
 class Sawtooth(BaseRipple):
   def __init__(self, h, k, F, q=None, qx=None, qz=None, D=58, lambda_r=140, 
-               gamma=1.7, x0=100, A=20, f1=1, f2=0):
+               gamma=1.7, x0=100, A=20):
     super().__init__(h, k, F, q, qx, qz, D, lambda_r, gamma)
     self.edp_par = Parameters()
     self.edp_par.add('x0', value=x0, vary=True)
     self.edp_par.add('A', value=A, vary=True)
-    self.edp_par.add('f1', value=f1, vary=False)
-    self.edp_par.add('f2', value=f2, vary=False)
+    self.edp_par.add('f1', value=1, vary=False)
+    self.edp_par.add('f2', value=0, vary=False)
   
   def F_cont(self):
     """
     Contuour part of the ripple form factor
     """
-    x0 = edp_par['x0'].value
-    A = edp_par['A'].value
-    lr = latt_par['lambda_r'].value
+    x0 = self.edp_par['x0'].value
+    A = self.edp_par['A'].value
+    f1 = self.edp_par['f1'].value
+    f2 = self.edp_par['f2'].value
+    lr = self.latt_par['lambda_r'].value
     w = self.omega()
     arg1 = 0.5*self.qx*lr + w
     arg2 = 0.5*self.qx*lr - w
@@ -115,25 +127,27 @@ class Sawtooth(BaseRipple):
     """
     Return the intermediate variable, omega
     """
-    x0 = edp_par['x0'].value
-    A = edp_par['A'].value
+    x0 = self.edp_par['x0'].value
+    A = self.edp_par['A'].value
     return 0.5 * (self.qx*x0 + self.qz*A)
 
 
 ###############################################################################
 class SDF(Sawtooth):
   def __init__(self, h, k, F, q=None, qx=None, qz=None, D=58, lambda_r=140, 
-               gamma=1.7, x0=100, A=20, f1=1, f2=0, rho_M=20, R_HM=2, X_h=20, 
+               gamma=1.7, x0=100, A=20, rho_M=20, R_HM=2, X_h=20, 
                psi=0.087):
-    super().__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, x0, A, f1, f2)
+    super().__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, x0, A)
     self.edp_par.add('rho_M', value=rho_M, vary=True)
     self.edp_par.add('R_HM', value=R_HM, vary=True)
     self.edp_par.add('X_h', value=X_h, vary=True)
     self.edp_par.add('psi', value=psi, vary=True)
   
+  def report_edp(self):
+    lmfit.report_fit(self.edp_par)
+    print("chisqr = {0:.3f}".format(self.edp.chisqr))
+        
   def fit_edp(self):
-    x = 
-    data = 
     self.edp = minimize(self.residual, self.edp_par)
     
   def residual(self, params):
@@ -141,7 +155,7 @@ class SDF(Sawtooth):
     Return the individual residuals.  
     """
     data = self.F
-    model = self.model()
+    model = np.absolute(self.model())
     return (data - model) 
     #return (data-model) / sigma    
     
@@ -167,8 +181,10 @@ class MDF(SDF):
   def __init__(self, h, k, F, q=None, qx=None, qz=None, D=58, lambda_r=140, 
                gamma=1.7, x0=100, A=20, f1=1, f2=0, rho_M=20, R_HM=2, X_h=20, 
                psi=0.087):
-    super().__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, x0, A, f1, f2,
+    super().__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, x0, A, 
                      rho_M, R_HM, X_h, psi)
+    self.edp_par['f1'].value = f1
+    self.edp_par['f2'].value = f2
     self.edp_par['f1'].vary = True
     self.edp_par['f2'].vary = True
 
@@ -178,15 +194,18 @@ class SGF(Sawtooth):
   pass
 
 
-class MGF(Sawtooth): 
+###############################################################################
+class MGF(SGF): 
   pass
 
 
+###############################################################################
 class S1G(Sawtooth):
   pass
 
 
-class M1G(Sawtooth):
+###############################################################################
+class M1G(S1G):
   pass
     
 
@@ -208,18 +227,11 @@ def Fourier_decomp(N=201, xmin=-100, xmax=100, zmin=-100, zmax=100):
   plt.contourf(X, Y, Z)
 
 
-def get_phase(params, qx, qz, model_type):
-  if model_type == 'SDF':
-    tmp = SDF_model(params, qx, qz)
-  elif model_type == 'MDF':
-    tmp = MDF_model(params, qx, qz)
-    
-  return np.sign(tmp)
 
 
 def show_model():
   model = SDF_model(params, qx, qz)
-  print " h  k      qx     qz      q   model       F"
+  print(" h  k      qx     qz      q   model       F")
   for a, b, c, d, e, f, g in zip(h, k, qx, qz, q, model, F):
     print("{0: 1d} {1: 1d}  {2: .3f} {3: .3f} {4: .3f} {5: 7.2f} {6: 7.2f}"
           .format(a, b, c, d, e, f, g))
@@ -247,40 +259,26 @@ def show_profile(start, end):
   
 if __name__ == "__main__":
   # read data to be fitted
-  filename = "WackWebb2.dat"
-  skip = 1
-  infile = open(filename, 'r')
-  h, k, q, F = read_data(infile, skip)
+  infile = open("WackWebb2.dat", 'r')
+  h, k, q, F = read_data(infile, skip=1)
   h = np.array(h, int)
   k = np.array(k, int)
   q = np.array(q, float)
   F = np.array(F, float) 
   sdf = SDF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, gamma=1.7, x0=105, 
-            A=20.3, f1=1, f2=0, rho_M=53.9, R_HM=2.21, X_h=20.2, psi=0.0868)   
+            A=20.3, rho_M=53.9, R_HM=2.21, X_h=20.2, psi=0.0868)   
+  sdf.fit_lattice()
   sdf.report_lattice()
+  sdf.fit_edp()
   sdf.report_edp()
   
-  lmfit.report_fit(params)
-  print("chisqr = {0:.3f}".format(result.chisqr))
-  phase = get_phase(params, qx, qz, 'SDF')
-  
   # Work on MDF
-  params = Parameters()
-  params.add('x0', value=103, vary=True)
-  params.add('A', value=20, vary=True)
-  params.add('rho_M', value=60, vary=True)
-  params.add('R_HM', value=2, vary=True)
-  params.add('X_h', value=20.4, vary=True)
-  params.add('psi', value=0.157, vary=True)
-  params.add('lambda_r', value=lambda_r, vary=False)
-  params.add('f1', value=0.7, vary=True)
-  params.add('f2', value=0, vary=True)
-  
-  result = minimize(residual, params, args=('MDF', qx, qz, data))
-  lmfit.report_fit(params)
-  print("chisqr = {0:.3f}".format(result.chisqr))
-  phase = get_phase(params, qx, qz, 'MDF')
-  
+  mdf = MDF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, gamma=1.7, 
+            x0=103, A=20, f1=0.7, f2=0, rho_M=60, R_HM=2, X_h=20.4, psi=0.157)
+  mdf.fit_lattice()
+  mdf.report_lattice()
+  mdf.fit_edp()
+  mdf.report_edp()
   
   # Work on S1G
   
