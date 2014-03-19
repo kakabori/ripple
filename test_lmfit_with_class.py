@@ -50,3 +50,4 @@ y = np.array(100*np.exp(-(x+4)**2/2/3.352))
 tmp = Exponential(x, y)
 tmp.minimize()
 
+

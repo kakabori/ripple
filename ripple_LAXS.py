@@ -15,221 +15,181 @@ def read_data(fileobj, skip=0):
   # ignore the first skip lines
   for i in range(skip):
     fileobj.readline()
-  
   h = []; k = []; q = []; F = []
   lines = fileobj.readlines()
   for line in lines:
     hval, kval, qval, Fval = line.split()
-    h.append(hval); k.append(kval); q.append(qval); F.append(Fval)
-  
+    h.append(hval); k.append(kval); q.append(qval); F.append(Fval) 
   return h, k, q, F
   
 
+###############################################################################
 class BaseRipple:
   """ 
-  The base ripple class 
+  The base ripple class, which will be inherited by contour subclasses, which
+  in turn will be inherited by transbilayer subclasses. This base class only
+  deals with the ripple lattice parameters, namely, D, lambda_r, and gamma.
   """
-  def __init__(self, h, k, q, F):
-    """
-    
-    """
+  def __init__(self, h, k, F, q=None, qx=None, qz=None, D=58, lambda_r=140, 
+               gamma=1.7):
     self.h = np.array(h, int)
     self.k = np.array(k, int)
     self.q = np.array(q, float)
     self.F = np.array(F, float)
-    self.params = Parameters()
-    self.params.add('D', value=58, vary=True)
-    self.params.add('lambda_r', value=140, vary=True)
-    self.params.add('gamma', value=1.7, vary=True)
+    self.qx = np.array(qx, float)
+    self.qz = np.array(qz, float)
+    self.latt_par = Parameters()
+    self.latt_par.add('D', value=D, vary=True)
+    self.latt_par.add('lambda_r', value=lambda_r, vary=True)
+    self.latt_par.add('gamma', value=gamma, vary=True)
         
   def fit_lattice(self):
-    x = np.array([self.h, self.k])
-    data = self.q * self.q
-    self.lattice = minimize(self.residual_lattice, self.params)    
-    self.qx = q_x(self.k, self.lambda_r)
-    self.qz = q_z(self.h, self.k, self.D, self.lambda_r, self.gamma)
+    self.lattice = minimize(self.residual_lattice, self.latt_par)    
+    self.qx = q_x()
+    self.qz = q_z()
 
   def residual_lattice(self, params):
-    model = self.model(params)
+    """
+    params is a dummy variable, necessary for lmfit.minimize to work
+    """
+    model = self.model_lattice()
     data = self.q**2
     return (model -data)
     
-  def model_lattice(self, params):
-    D = params['D'].value
-    lambda_r = params['lambda_r'].value
-    gamma = params['gamma'].value
-    
-    return q_square(self.h, self.k, D, lambda_r, gamma)
-    
+  def model_lattice(self):
+    D = self.latt_par['D'].value
+    lambda_r = self.latt_par['lambda_r'].value
+    gamma = self.latt_par['gamma'].value   
+    return self._q_square()
+       
+  def _q_square(self):
+    """ 
+    Return q = qx^2 + qz^2 in the ripple phase LAXS.
+    """
+    return self._q_x()**2 + self._q_z()**2    
+  
+  def _q_x(self):
+    """
+    Return qx value in the ripple phase LAXS.
+
+    """
+    lambda_r = self.latt_par['lambda_r'].value 
+    return 2*np.pi*self.k/lambda_r
+  
+  def _q_z(self):
+    """
+    Return qz value in the ripple phase LAXS.
+    """
+    D = self.latt_par['D'].value
+    lambda_r = self.latt_par['lambda_r'].value
+    gamma = self.latt_par['gamma'].value
+    return 2*np.pi*(self.h/D - self.k/lambda_r/np.tan(gamma))
+  
+
+###############################################################################
+class Sawtooth(BaseRipple):
+  def __init__(self, h, k, F, q=None, qx=None, qz=None, D=58, lambda_r=140, 
+               gamma=1.7, x0=100, A=20, f1=1, f2=0):
+    super().__init__(h, k, F, q, qx, qz, D, lambda_r, gamma)
+    self.edp_par = Parameters()
+    self.edp_par.add('x0', value=x0, vary=True)
+    self.edp_par.add('A', value=A, vary=True)
+    self.edp_par.add('f1', value=f1, vary=False)
+    self.edp_par.add('f2', value=f2, vary=False)
+  
+  def F_cont(self):
+    """
+    Contuour part of the ripple form factor
+    """
+    x0 = edp_par['x0'].value
+    A = edp_par['A'].value
+    lr = latt_par['lambda_r'].value
+    w = self.omega()
+    arg1 = 0.5*self.qx*lr + w
+    arg2 = 0.5*self.qx*lr - w
+    fir = x0 * np.sin(w) / lr / w
+    sec = (lr-x0) * np.cos(0.5*arg1) * np.sin(arg2) / lr / np.cos(0.5*arg2) / arg2 
+    return (fir + f1*sec + 2*f2*np.cos(w)) 
+  
+  def omega(self):
+    """
+    Return the intermediate variable, omega
+    """
+    x0 = edp_par['x0'].value
+    A = edp_par['A'].value
+    return 0.5 * (self.qx*x0 + self.qz*A)
+
+
+###############################################################################
+class SDF(Sawtooth):
+  def __init__(self, h, k, F, q=None, qx=None, qz=None, D=58, lambda_r=140, 
+               gamma=1.7, x0=100, A=20, f1=1, f2=0, rho_M=20, R_HM=2, X_h=20, 
+               psi=0.087):
+    super().__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, x0, A, f1, f2)
+    self.edp_par.add('rho_M', value=rho_M, vary=True)
+    self.edp_par.add('R_HM', value=R_HM, vary=True)
+    self.edp_par.add('X_h', value=X_h, vary=True)
+    self.edp_par.add('psi', value=psi, vary=True)
+  
   def fit_edp(self):
-    pass
+    x = 
+    data = 
+    self.edp = minimize(self.residual, self.edp_par)
     
-  def residual_edp(self, params):
-    pass
-    
-  def model_edp(self, params):
-    pass
-
-
-def q_square(h, k, D, l, g):
-  """ 
-  Return q = qx^2 + qz^2 in the ripple phase LAXS.
-  
-  h: h index
-  k: k index
-  D: D-spacing 
-  l: lambda_r, the ripple wavelength
-  g: gamma angle of the unit cell
-  """
-  h = self.h
-  return q_x(k, l)*q_x(k, l) + q_z(h, k, D, l, g)*q_z(h, k, D, l, g)    
-  
-
-def q_x(k, lambda_r):
-  """
-  Return qx value in the ripple phase LAXS.
-  
-  k: k index
-  lambda_r: lambda_r, the ripple wavelength
-  """
-  return 2*np.pi*k/lambda_r
-  
-
-def q_z(h, k, D, lambda_r, gamma):
-  """
-  Return qz value in the ripple phase LAXS.
-  
-  h: h index
-  k: k index
-  D: D-spacing 
-  lambda_r: lambda_r, the ripple wavelength
-  gamma: gamma angle of the unit cell
-  """
-  return 2*np.pi*(h/D - k/lambda_r/np.tan(gamma))
-  
-  
-class SDF(Base_Ripple): 
-        
-
-
-
-
-
-
-
-
-
-
-
-
-def omega(qx, qz, x0, A):
-  """
-  Return the intermediate variable, omega
-  """
-  return 0.5 * (qx*x0 + qz*A)
-  
-
-def SDF_model(params, qx, qz):
-  """
-  Return the simple delta function. The return object is a numpy array with
-  its length equal to the length of qx.
-  
-  params: lmfit Parameter object, requires x0, A, rho_M, R_HM, X_h, psi, and
-          lambda_r
-  qx, qz: numpy array. These must be in the same length
-  """
-  x0 = params['x0'].value
-  A = params['A'].value
-  rho_M = params['rho_M'].value
-  R_HM = params['R_HM'].value
-  X_h = params['X_h'].value
-  psi = params['psi'].value
-  lambda_r = params['lambda_r'].value
-
-  model = SDF_F_trans(qx, qz, X_h, psi, rho_M, R_HM) * \
-          SDF_F_cont(qx, qz, x0, A, lambda_r)
-
-  return model
-  
-
-def SDF_F_trans(qx, qz, X_h, psi, rho_M, R_HM):
-  arg = qz*X_h*np.cos(psi) - qx*X_h*np.sin(psi)
-  return rho_M * (R_HM*np.cos(arg) - 1)
-  
-
-def SDF_F_cont(qx, qz, x0, A, lambda_r):
-  w = omega(qx, qz, x0, A)
-  lr = lambda_r
-  arg1 = 0.5*qx*lr + w
-  arg2 = 0.5*qx*lr - w
-  fir = x0 * np.sin(w) / lambda_r / w
-  sec = (lr-x0) * np.cos(0.5*arg1) * np.sin(arg2) / lr / np.cos(0.5*arg2) / arg2 
-  return (fir + sec)
-
-
-def MDF_model(params, qx, qz):
-  """
-  
-  """
-  x0 = params['x0'].value
-  A = params['A'].value
-  rho_M = params['rho_M'].value
-  R_HM = params['R_HM'].value
-  X_h = params['X_h'].value
-  psi = params['psi'].value
-  lambda_r = params['lambda_r'].value
-  f1 = params['f1'].value
-  f2 = params['f2'].value
-  
-  model = MDF_F_trans(qx, qz, X_h, psi, rho_M, R_HM) * \
-          MDF_F_cont(qx, qz, x0, A, lambda_r, f1, f2)
-  
-  return model
-
-def MDF_F_trans(qx, qz, X_h, psi, rho_M, R_HM):
-  """
-  
-  """
-  return SDF_F_trans(qx, qz, X_h, psi, rho_M, R_HM)
-
-
-def MDF_F_cont(qx, qz, x0, A, lambda_r, f1, f2):
-  """
-  
-  """
-  w = omega(qx, qz, x0, A)
-  lr = lambda_r
-  arg1 = 0.5*qx*lr + w
-  arg2 = 0.5*qx*lr - w
-  fir = x0 * np.sin(w) / lambda_r / w
-  sec = (lr-x0) * np.cos(0.5*arg1) * np.sin(arg2) / lr / np.cos(0.5*arg2) / arg2 
-  return (fir + f1*sec + 2*f2*np.cos(w)) 
-
-    
-# define objective function: returns the array to be minimized
-def residual(params, model_type, qx, qz, data=None, sigma=None):
-  """
-  Return the individual residuals. If data=None, return the model. If 
-  simga=None, return (data - model). Otherwise, return (data-model) / sigma.
-  model is the form factor squared, that is, intensity. model_type can take
-  'SDF' or 'MDF'.
-  """
-  
-  if model_type == 'SDF':
-    model = np.absolute(SDF_model(params, qx, qz))
-  elif model_type == 'MDF':
-    model = np.absolute(MDF_model(params, qx, qz))
-    
-  if data is None:
-    return model
-  if sigma is None:
+  def residual(self, params):
+    """
+    Return the individual residuals.  
+    """
+    data = self.F
+    model = self.model()
     return (data - model) 
-  return (data-model) / sigma
+    #return (data-model) / sigma    
+    
+  def model(self):
+    """
+    Return the model. The return object is a numpy array with
+    its length equal to the length of qx.
+    """
+    model = self.F_trans() * self.F_cont()
+    return model
 
-
-
+  def F_trans(self):
+    rho_M = self.edp_par['rho_M'].value
+    R_HM = self.edp_par['R_HM'].value
+    X_h = self.edp_par['X_h'].value
+    psi = self.edp_par['psi'].value  
+    arg = self.qz*X_h*np.cos(psi) - self.qx*X_h*np.sin(psi)
+    return rho_M * (R_HM*np.cos(arg) - 1)
   
-  
+
+###############################################################################
+class MDF(SDF):
+  def __init__(self, h, k, F, q=None, qx=None, qz=None, D=58, lambda_r=140, 
+               gamma=1.7, x0=100, A=20, f1=1, f2=0, rho_M=20, R_HM=2, X_h=20, 
+               psi=0.087):
+    super().__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, x0, A, f1, f2,
+                     rho_M, R_HM, X_h, psi)
+    self.edp_par['f1'].vary = True
+    self.edp_par['f2'].vary = True
+
+
+###############################################################################
+class SGF(Sawtooth):
+  pass
+
+
+class MGF(Sawtooth): 
+  pass
+
+
+class S1G(Sawtooth):
+  pass
+
+
+class M1G(Sawtooth):
+  pass
+    
+
 def Fourier_decomp(N=201, xmin=-100, xmax=100, zmin=-100, zmax=100):
   rho_xz = []
   xgrid = np.linspace(xmin, xmax, num=N)
@@ -294,30 +254,12 @@ if __name__ == "__main__":
   h = np.array(h, int)
   k = np.array(k, int)
   q = np.array(q, float)
-  F = np.array(F, float)
+  F = np.array(F, float) 
+  sdf = SDF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, gamma=1.7, x0=105, 
+            A=20.3, f1=1, f2=0, rho_M=53.9, R_HM=2.21, X_h=20.2, psi=0.0868)   
+  sdf.report_lattice()
+  sdf.report_edp()
   
-  # obtain lambda_r, D, and gamma using the Ripple class
-  obj = Ripple(h, k, q, F)
-  obj.fit()
-  D = obj.D
-  lambda_r = obj.lambda_r
-  gamma = obj.gamma
-  qx = q_x(k, lambda_r)
-  qz = q_z(h, k, D, lambda_r, gamma)
-  
-  # Work on SDF
-  params = Parameters()
-  params.add('x0', value=105, vary=True)
-  params.add('A', value=20.3, vary=True)
-  params.add('rho_M', value=53.9, vary=True)
-  params.add('R_HM', value=2.21, vary=True)
-  params.add('X_h', value=20.2, vary=True)
-  params.add('psi', value=0.0868, vary=True)
-  params.add('lambda_r', value=lambda_r, vary=False)
-  
-  x = np.array(q, float)
-  data = np.array(F, float)
-  result = minimize(residual, params, args=('SDF', qx, qz, data))
   lmfit.report_fit(params)
   print("chisqr = {0:.3f}".format(result.chisqr))
   phase = get_phase(params, qx, qz, 'SDF')
