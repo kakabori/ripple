@@ -25,7 +25,7 @@ def read_data(fileobj, skip=0):
   return h, k, q, F
   
 
-class Base_Ripple:
+class BaseRipple:
   """ 
   The base ripple class 
   """
@@ -46,23 +46,32 @@ class Base_Ripple:
     x = np.array([self.h, self.k])
     data = self.q * self.q
     self.lattice = minimize(self.residual_lattice, self.params)    
+    self.qx = q_x(self.k, self.lambda_r)
+    self.qz = q_z(self.h, self.k, self.D, self.lambda_r, self.gamma)
 
   def residual_lattice(self, params):
+    model = self.model(params)
+    data = self.q**2
+    return (model -data)
+    
+  def model_lattice(self, params):
     D = params['D'].value
     lambda_r = params['lambda_r'].value
     gamma = params['gamma'].value
     
-    model = self.model(D, lambda_r, gamma)
-    data = self.q**2
-    return (model -data)
-  
-  def update(self):
-    self.qx = q_x(self.k, self.lambda_r)
-    self.qz = q_z(self.h, self.k, self.D, self.lambda_r, self.gamma)
+    return q_square(self.h, self.k, D, lambda_r, gamma)
     
-  def model(self, D, lambda_r, gamma):
- 
-  def q_square(h, k, D, l, g):
+  def fit_edp(self):
+    pass
+    
+  def residual_edp(self, params):
+    pass
+    
+  def model_edp(self, params):
+    pass
+
+
+def q_square(h, k, D, l, g):
   """ 
   Return q = qx^2 + qz^2 in the ripple phase LAXS.
   
@@ -75,7 +84,8 @@ class Base_Ripple:
   h = self.h
   return q_x(k, l)*q_x(k, l) + q_z(h, k, D, l, g)*q_z(h, k, D, l, g)    
   
-  def q_x(k, lambda_r):
+
+def q_x(k, lambda_r):
   """
   Return qx value in the ripple phase LAXS.
   
@@ -84,7 +94,8 @@ class Base_Ripple:
   """
   return 2*np.pi*k/lambda_r
   
-  def q_z(h, k, D, lambda_r, gamma):
+
+def q_z(h, k, D, lambda_r, gamma):
   """
   Return qz value in the ripple phase LAXS.
   
@@ -97,7 +108,7 @@ class Base_Ripple:
   return 2*np.pi*(h/D - k/lambda_r/np.tan(gamma))
   
   
-        
+class SDF(Base_Ripple): 
         
 
 
