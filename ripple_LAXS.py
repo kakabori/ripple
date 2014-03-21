@@ -149,6 +149,7 @@ class SDF(Sawtooth):
         
   def fit_edp(self):
     self.edp = minimize(self.residual, self.edp_par)
+    self.set_phase()
     
   def residual(self, params):
     """
