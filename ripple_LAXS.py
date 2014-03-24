@@ -1,4 +1,5 @@
 import numpy as np
+from numpy import pi
 import matplotlib as ppl
 import scipy.optimize
 import matplotlib.pyplot as plt
@@ -211,7 +212,7 @@ class Sawtooth(BaseRipple):
     arg2 = 0.5*self.qx*lr - w
     fir = x0 * np.sin(w) / lr / w
     sec = (lr-x0) * np.cos(0.5*arg1) * np.sin(arg2) / lr / np.cos(0.5*arg2) / arg2 
-    return (fir + f1*sec + 2*f2*np.cos(w)) 
+    return (fir + f1*sec + 2*f2*np.cos(w)/lr) 
   
   def _omega(self):
     """
@@ -261,26 +262,32 @@ class MDF(SDF):
 ###############################################################################
 class SGF(Sawtooth):
   def __init__(self, h, k, F, q=None, qx=None, qz=None, D=58, lambda_r=140, 
-               gamma=1.7, x0=100, A=20, rho_M=20, R_HM=2, X_h=20, 
-               psi=0.087):
-    super(SDF, self).__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, x0, A)
-    self.edp_par.add('rho_M', value=rho_M, vary=True)
+               gamma=1.7, x0=100, A=20.27, R_HM=2.21, X_H=20.24, sigma_H=3, 
+               rho_M=20, sigma_M=3, psi=0.087):
+    super(SGF, self).__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, x0, A)
     self.edp_par.add('R_HM', value=R_HM, vary=True)
-    self.edp_par.add('X_h', value=X_h, vary=True)
+    self.edp_par.add('X_H', value=X_H, vary=True)
+    self.edp_par.add('sigma_H', value=sigma_H, vary=True)
+    self.edp_par.add('rho_M', value=rho_M, vary=True)
+    self.edp_par.add('sigma_M', value=sigma_M, vary=True)
     self.edp_par.add('psi', value=psi, vary=True)
   
   def F_trans(self):
     """
     Transbilayer part of the ripple form factor
     """
-    rho_M = self.edp_par['rho_M'].value
     R_HM = self.edp_par['R_HM'].value
-    X_h = self.edp_par['X_h'].value
+    X_H = self.edp_par['X_H'].value
+    sigma_H = self.edp_par['sigma_H'].value
+    rho_M = self.edp_par['rho_M'].value
+    sigma_M = self.edp_par['sigma_M'].value
     psi = self.edp_par['psi'].value  
-    arg = self.qz*X_h*np.cos(psi) - self.qx*X_h*np.sin(psi)
-    return rho_M * (R_HM*np.cos(arg) - 1)  
+    th = np.cos(psi)*(self.qz - self.qx*np.tan(psi))
+    first = R_HM*sigma_H*np.cos(X_H*th)*np.exp(-0.5*sigma_H**2*th**2)
+    second = sigma_M*np.exp(-0.5*sigma_M**2*th**2)
+    return np.sqrt(2*pi)*np.cos(psi)*rho_M*(first-second)  
 
-
+      
 ###############################################################################
 class MGF(SGF): 
   pass
@@ -315,20 +322,27 @@ if __name__ == "__main__":
   k = np.array(k, int)
   q = np.array(q, float)
   F = np.array(F, float) 
-  sdf = SDF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, gamma=1.7, x0=105, 
-            A=20.3, rho_M=53.9, R_HM=2.21, X_h=20.2, psi=0.0868)   
+  sdf = SDF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, gamma=1.7, 
+            x0=105, A=20.3, rho_M=53.9, R_HM=2.21, X_h=20.2, psi=0.0868)   
   sdf.fit_lattice()
-  #sdf.report_lattice()
   sdf.fit_edp()
   sdf.report_edp()
   
   # Work on MDF
   mdf = MDF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, gamma=1.7, 
-            x0=103, A=20, f1=0.7, f2=0, rho_M=60, R_HM=2, X_h=20.4, psi=0.157)
+            x0=101.6, A=19.75, f1=0.619, f2=0, rho_M=60.22, R_HM=2.159, 
+            X_h=20.34, psi=0.160)
   mdf.fit_lattice()
-  #mdf.report_lattice()
   mdf.fit_edp()
   mdf.report_edp()
+  
+  # Work on SGF
+  sgf = SGF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, gamma=1.7,
+            x0=104.8, A=20.27, R_HM=2.21, X_H=20.24, sigma_H=5, rho_M=53.88, 
+            sigma_M=4, psi=0.168)
+  sgf.fit_lattice()
+  sgf.fit_edp()
+  sgf.report_edp()
   
   # Work on S1G
   
