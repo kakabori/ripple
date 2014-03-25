@@ -6,7 +6,8 @@ def strip(x):
   w = 2.36*sigma_H
   ret = np.zeros(len(x))
   ret[(x>=0) & (x<=x0-w/2)] = rho_CH2
-  ret[(x>=x0-w/2) & (x<=x0+w/2)] = f(x[(x>=x0-w/2) & (x<=x0+w/2)], w) 
+  ret
+  [(x>=x0-w/2) & (x<=x0+w/2)] = f(x[(x>=x0-w/2) & (x<=x0+w/2)], w) 
   ret[x>=x0+w/2] = rho_w
 
   return ret    
