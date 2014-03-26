@@ -1,17 +1,19 @@
 import numpy as np
-from numpy import pi
+from numpy import pi, sin, cos, tan, exp
 import matplotlib as ppl
 import scipy.optimize
 import matplotlib.pyplot as plt
 from lmfit import minimize, Parameters
 import lmfit
 
-def read_data(fileobj, skip=0):
+def read_data(fileobj, skip=0, data_type="F"):
   """
   Read a four-column ASCII file and parse each column into a python list.
   
   fileobj: input file object
   skip: the number of header lines that will be skipped
+  data_type: whether input data are form factor or intensity. If intensity,
+             the correction for oriented sample will be applied.
   """
   # ignore the first skip lines
   for i in range(skip):
@@ -33,7 +35,7 @@ class BaseRipple(object):
   Methods such as showing 1D and 2D edp are also implemented.
   """
   def __init__(self, h, k, F, q=None, qx=None, qz=None, D=58, lambda_r=140, 
-               gamma=1.7):
+               gamma=1.7, I=None):
     self.h = np.array(h, int)
     self.k = np.array(k, int)
     self.q = np.array(q, float)
@@ -44,6 +46,7 @@ class BaseRipple(object):
     self.latt_par.add('D', value=D, vary=True)
     self.latt_par.add('lambda_r', value=lambda_r, vary=True)
     self.latt_par.add('gamma', value=gamma, vary=True)
+    self.I = I
 
   def _set_phase(self):
     """
@@ -295,8 +298,37 @@ class MGF(SGF):
 
 ###############################################################################
 class S1G(Sawtooth):
-  pass
-
+  def __init__(self, h, k, F, q=None, qx=None, qz=None, D=58, lambda_r=140, 
+               gamma=1.7, x0=100, A=20.27, R_HM=2.21, X_H=20.24, sigma_H=3, 
+               rho_M=20, sigma_M=3, psi=0.087, drho=0.1):
+    super(SGF, self).__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, x0, A)
+    self.edp_par.add('R_HM', value=R_HM, vary=True)
+    self.edp_par.add('X_H', value=X_H, vary=True)
+    self.edp_par.add('sigma_H', value=sigma_H, vary=True)
+    self.edp_par.add('rho_M', value=rho_M, vary=True)
+    self.edp_par.add('sigma_M', value=sigma_M, vary=True)
+    self.edp_par.add('psi', value=psi, vary=True)
+    self.edp_par.add('delta_rho', value=drho, vary=True)
+  
+  def F_trans(self):
+    """
+    Transbilayer part of the ripple form factor
+    """
+    R_HM = self.edp_par['R_HM'].value
+    Z_H = self.edp_par['X_H'].value
+    sigma_H = self.edp_par['sigma_H'].value
+    rho_M = self.edp_par['rho_M'].value
+    sigma_M = self.edp_par['sigma_M'].value
+    psi = self.edp_par['psi'].value  
+    drho = self.edp_par['delta_rho'].value
+    th = cos(psi)*(self.qz - self.qx*tan(psi))
+    Fs = 2*drho*sin(self.qz*Z_H)*cos(self.qz*w/2)
+    Fs = Fs * (-1/self.qz + self.qz*w*w/(self.qz**2*w*w-pi*pi))
+    FG = sqrt(2*pi)*cos(psi*rho_M)
+    FG = FG * (R_HM*sigma_H*cos(Z_H*th)*exp(-0.5*sigma_H**2*th*th)
+               -sigma_M*exp(-0.5*sigma_M**2*th*th))
+    return (Fs + FG)
+    
 
 ###############################################################################
 class M1G(S1G):
@@ -336,13 +368,13 @@ if __name__ == "__main__":
   mdf.fit_edp()
   mdf.report_edp()
   
-  # Work on SGF
-  sgf = SGF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, gamma=1.7,
+  # Work on S1G
+  s1g = S1G(h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, gamma=1.7,
             x0=104.8, A=20.27, R_HM=2.21, X_H=20.24, sigma_H=5, rho_M=53.88, 
             sigma_M=4, psi=0.168)
-  sgf.fit_lattice()
-  sgf.fit_edp()
-  sgf.report_edp()
+  s1g.fit_lattice()
+  s1g.fit_edp()
+  s1g.report_edp()
   
   # Work on S1G
   
