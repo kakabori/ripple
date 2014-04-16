@@ -34,20 +34,30 @@ class BaseRipple(object):
   deals with the ripple lattice parameters, namely, D, lambda_r, and gamma.
   Methods such as showing 1D and 2D edp are also implemented.
   """
-  def __init__(self, h, k, F, q=None, qx=None, qz=None, D=58, lambda_r=140, 
+  def __init__(self, h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, 
                gamma=1.7, I=None):
     self.h = np.array(h, int)
     self.k = np.array(k, int)
     self.q = np.array(q, float)
     self.F = np.array(F, float)
-    self.qx = np.array(qx, float)
-    self.qz = np.array(qz, float)
     self.latt_par = Parameters()
     self.latt_par.add('D', value=D, vary=True)
     self.latt_par.add('lambda_r', value=lambda_r, vary=True)
     self.latt_par.add('gamma', value=gamma, vary=True)
-    self.I = I
-
+    if qx is None:
+      self.qx = self._q_x()
+    else:
+      self.qx = np.array(qx, float)
+    if qz is None:
+      self.qz = self._q_z()
+    else:
+      self.qz = np.array(qz, float)
+    if I is None:
+      self.I = self.F**2
+    else:
+      self.I = I
+    self.sigma = np.absolute(self.F)
+      
   def _set_phase(self):
     """
     model method needs to be defined in the subclasses
@@ -176,23 +186,33 @@ class BaseRipple(object):
     """
     Return the individual residuals.  
     """
-    data = self.F
-    model = np.absolute(self._model())
-    return (data - model) 
-    #return (data-model) / sigma    
+    data = self.F**2
+    model = np.absolute(self._model())**2
+    return (data-model) / self.sigma  
+    # The following three lines do not reproduce Sun's results, which proves
+    # that the fits were done through intensity, not form factor.
+    #data = self.F
+    #model = np.absolute(self._model())
+    #return (data - model) 
+      
     
   def _model(self):
     """
     Return the model form factor. The return object is a numpy array with
     its length equal to the length of qx.
     """
+    rho_M = self.edp_par['rho_M'].value
     model = self.F_trans() * self.F_cont()
+    # get F(h=1,k=0), which is used for normalization 
+    # rho_M is a common scaling factor => F(h=1,k=0) = 100*rho_M
+    F_10 = model[(h==1)&(k==0)]
+    model = model / np.absolute(F_10) * 100 * rho_M
     return model
   
 
 ###############################################################################
 class Sawtooth(BaseRipple):
-  def __init__(self, h, k, F, q=None, qx=None, qz=None, D=58, lambda_r=140, 
+  def __init__(self, h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, 
                gamma=1.7, x0=100, A=20):
     super(Sawtooth, self).__init__(h, k, F, q, qx, qz, D, lambda_r, gamma)
     self.edp_par = Parameters()
@@ -210,11 +230,12 @@ class Sawtooth(BaseRipple):
     f1 = self.edp_par['f1'].value
     f2 = self.edp_par['f2'].value
     lr = self.latt_par['lambda_r'].value
-    w = self._omega()
+    w = 0.5 * (self.qx*x0 + self.qz*A)
     arg1 = 0.5*self.qx*lr + w
     arg2 = 0.5*self.qx*lr - w
     fir = x0 * np.sin(w) / lr / w
     sec = (lr-x0) * np.cos(0.5*arg1) * np.sin(arg2) / lr / np.cos(0.5*arg2) / arg2 
+    #sec = (-1)**self.k * (lr-x0) * sin(self.k*pi-w)/(self.k*pi-w)/lr
     return (fir + f1*sec + 2*f2*np.cos(w)/lr) 
   
   def _omega(self):
@@ -301,7 +322,7 @@ class S1G(Sawtooth):
   def __init__(self, h, k, F, q=None, qx=None, qz=None, D=58, lambda_r=140, 
                gamma=1.7, x0=100, A=20.27, R_HM=2.21, X_H=20.24, sigma_H=3, 
                rho_M=20, sigma_M=3, psi=0.087, drho=0.1):
-    super(SGF, self).__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, x0, A)
+    super(S1G, self).__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, x0, A)
     self.edp_par.add('R_HM', value=R_HM, vary=True)
     self.edp_par.add('X_H', value=X_H, vary=True)
     self.edp_par.add('sigma_H', value=sigma_H, vary=True)
@@ -344,6 +365,25 @@ class M1G(S1G):
 
 
 
+def F_C(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,x0=103,A=18.6):
+  qx = 2*pi*k/lr
+  qz = 2*pi*h/D - 2*pi*k/lr/tan(gamma)
+  w = 0.5*(qx*x0+qz*A)
+  arg1 = 0.5*qx*lr + w
+  arg2 = 0.5*qx*lr - w
+  return x0*sin(w)/w/lr+(lr-x0)/lr*cos(0.5*arg1)/cos(0.5*arg2)*sin(arg2)/arg2  
+
+def F_C2(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,x0=103,A=18.6):
+  qx = 2*pi*k/lr
+  qz = 2*pi*h/D - 2*pi*k/lr/tan(gamma)
+  w = 0.5*(qx*x0+qz*A)
+  return sin(w)*(k*pi*x0/lr-w)/(w*(k*pi-w))
+
+def F_T(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,rhom=51.38,rhm=2.2,xh=20.1,psi=5):
+  psi = psi * pi / 180
+  qx = 2*pi*k/lr
+  qz = 2*pi*h/D - 2*pi*k/lr/tan(gamma)
+  return rhom*(rhm*cos(qz*xh*cos(psi)-qx*xh*sin(psi)) - 1)
   
   
 if __name__ == "__main__":
@@ -354,27 +394,46 @@ if __name__ == "__main__":
   k = np.array(k, int)
   q = np.array(q, float)
   F = np.array(F, float) 
-  sdf = SDF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, gamma=1.7, 
-            x0=105, A=20.3, rho_M=53.9, R_HM=2.21, X_h=20.2, psi=0.0868)   
-  sdf.fit_lattice()
+  sdf = SDF(h, k, F, q, qx=None, qz=None, D=57.94, lambda_r=141.7, gamma=1.7174, 
+            x0=103, A=18.6, rho_M=0.967, R_HM=2.2, X_h=20.1, psi=0.08727)   
+#  sdf.fit_lattice()
   sdf.fit_edp()
   sdf.report_edp()
   
-  # Work on MDF
-  mdf = MDF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, gamma=1.7, 
-            x0=101.6, A=19.75, f1=0.619, f2=0, rho_M=60.22, R_HM=2.159, 
-            X_h=20.34, psi=0.160)
-  mdf.fit_lattice()
-  mdf.fit_edp()
-  mdf.report_edp()
+###############################################################################
+  # The following parameters reproduce one of Wenjun Sun's results
+  # See RIPPLE~1/PROG_DIR/REFINE~1/REFINE.CMP
+#  mdf = MDF(h, k, F, q, qx=None, qz=None, D=57.94, lambda_r=141.7, gamma=1.7174, 
+#            x0=118, A=21.8, f1=1, f2=-9, rho_M=1, R_HM=2.1, 
+#            X_h=20.4, psi=0.1571)
+#  mdf.edp_par['f1'].vary = False
+#  mdf.fit_lattice()
+#  mdf.fit_edp()
+#  mdf.report_edp()
   
+  # The following parameters approximately reproduce one of Sun's results
+  # for f1 and f2 free
+#  mdf = MDF(h, k, F, q, qx=None, qz=None, D=57.94, lambda_r=141.7, gamma=1.7174, 
+#            x0=103, A=20.0, f1=0.7, f2=-2, rho_M=1, R_HM=2.2, 
+#            X_h=20.4, psi=0.1571) 
+#  mdf.fit_edp()
+#  mdf.report_edp() 
+###############################################################################
+
+  # Work on MDF
+  mdf = MDF(h, k, F, q, qx=None, qz=None, D=57.94, lambda_r=141.7, gamma=1.7174, 
+            x0=103, A=20.0, f1=1, f2=0, rho_M=1, R_HM=2.2, 
+            X_h=20.4, psi=0.1571) 
+  mdf.fit_edp()
+  mdf.report_edp()  
+
   # Work on S1G
-  s1g = S1G(h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, gamma=1.7,
-            x0=104.8, A=20.27, R_HM=2.21, X_H=20.24, sigma_H=5, rho_M=53.88, 
-            sigma_M=4, psi=0.168)
-  s1g.fit_lattice()
-  s1g.fit_edp()
-  s1g.report_edp()
+#  s1g = S1G(h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, gamma=1.7,
+#            x0=104.8, A=20.27, R_HM=2.21, X_H=20.24, sigma_H=5, rho_M=53.88, 
+#            sigma_M=4, psi=0.168)
+#  s1g.fit_lattice()
+#  s1g.fit_edp()
+#  s1g.report_edp()
   
   # Work on S1G
   
