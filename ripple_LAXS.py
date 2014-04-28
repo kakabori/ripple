@@ -205,7 +205,7 @@ class BaseRipple(object):
     model = self.F_trans() * self.F_cont()
     # get F(h=1,k=0), which is used for normalization 
     # rho_M is a common scaling factor => F(h=1,k=0) = 100*rho_M
-    F_10 = model[(h==1)&(k==0)]
+    F_10 = model[(self.h==1)&(self.k==0)]
     model = model / np.absolute(F_10) * 100 * rho_M
     return model
   
@@ -384,62 +384,62 @@ def F_T(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,rhom=51.38,rhm=2.2,xh=20.1,psi=5):
   qx = 2*pi*k/lr
   qz = 2*pi*h/D - 2*pi*k/lr/tan(gamma)
   return rhom*(rhm*cos(qz*xh*cos(psi)-qx*xh*sin(psi)) - 1)
-  
-  
-if __name__ == "__main__":
+
+
+def reproduce_WenjunSun_PNAS():
   # read data to be fitted
   infile = open("WackWebb2.dat", 'r')
   h, k, q, F = read_data(infile, skip=1)
   h = np.array(h, int)
   k = np.array(k, int)
   q = np.array(q, float)
-  F = np.array(F, float) 
-  sdf = SDF(h, k, F, q, qx=None, qz=None, D=57.94, lambda_r=141.7, gamma=1.7174, 
-            x0=103, A=18.6, rho_M=0.967, R_HM=2.2, X_h=20.1, psi=0.08727)   
-#  sdf.fit_lattice()
-  sdf.fit_edp()
-  sdf.report_edp()
-  
-###############################################################################
+  F = np.array(F, float)
+
   # The following parameters reproduce one of Wenjun Sun's results
   # See RIPPLE~1/PROG_DIR/REFINE~1/REFINE.CMP
-#  mdf = MDF(h, k, F, q, qx=None, qz=None, D=57.94, lambda_r=141.7, gamma=1.7174, 
-#            x0=118, A=21.8, f1=1, f2=-9, rho_M=1, R_HM=2.1, 
-#            X_h=20.4, psi=0.1571)
-#  mdf.edp_par['f1'].vary = False
+  mdf = MDF(h, k, F, q, qx=None, qz=None, D=57.94, lambda_r=141.7, gamma=1.7174, 
+            x0=118, A=21.8, f1=1, f2=-9, rho_M=1, R_HM=2.1, 
+            X_h=20.4, psi=0.1571)
+  mdf.edp_par['f1'].vary = False
 #  mdf.fit_lattice()
-#  mdf.fit_edp()
-#  mdf.report_edp()
+  mdf.fit_edp()
+  mdf.report_edp()
   
   # The following parameters approximately reproduce one of Sun's results
   # for f1 and f2 free
-#  mdf = MDF(h, k, F, q, qx=None, qz=None, D=57.94, lambda_r=141.7, gamma=1.7174, 
-#            x0=103, A=20.0, f1=0.7, f2=-2, rho_M=1, R_HM=2.2, 
-#            X_h=20.4, psi=0.1571) 
-#  mdf.fit_edp()
-#  mdf.report_edp() 
-###############################################################################
+  mdf = MDF(h, k, F, q, qx=None, qz=None, D=57.94, lambda_r=141.7, gamma=1.7174, 
+            x0=103, A=20.0, f1=0.7, f2=-2, rho_M=1, R_HM=2.2, 
+            X_h=20.4, psi=0.1571) 
+  mdf.fit_edp()
+  mdf.report_edp() 
 
+
+if __name__ == "__main__":
+#  reproduce_WenjunSun_PNAS()
+  # read data to be fitted
+  infile = open('ripple_066-067.dat', 'r')
+  h, k, q, F = read_data(infile, skip=1)
+  h = np.array(h, int)
+  k = np.array(k, int)
+  q = np.array(q, float)
+  F = np.array(F, float) 
+  
+  # Work on SDF
+  sdf = SDF(h, k, F, q, qx=None, qz=None, D=59.1, lambda_r=141.7, gamma=1.7174, 
+            x0=123, A=22, rho_M=2, R_HM=4.2, X_h=16.1, psi=0.08727)   
+  sdf.fit_lattice()
+  sdf.fit_edp()
+  sdf.report_edp()
+  
   # Work on MDF
   mdf = MDF(h, k, F, q, qx=None, qz=None, D=57.94, lambda_r=141.7, gamma=1.7174, 
             x0=103, A=20.0, f1=1, f2=0, rho_M=1, R_HM=2.2, 
             X_h=20.4, psi=0.1571) 
-  mdf.fit_edp()
-  mdf.report_edp()  
+#  mdf.fit_lattice()
+#  mdf.fit_edp()
+#  mdf.report_edp()  
 
-  # Work on S1G
-#  s1g = S1G(h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, gamma=1.7,
-#            x0=104.8, A=20.27, R_HM=2.21, X_H=20.24, sigma_H=5, rho_M=53.88, 
-#            sigma_M=4, psi=0.168)
-#  s1g.fit_lattice()
-#  s1g.fit_edp()
-#  s1g.report_edp()
   
-  # Work on S1G
-  
-  # Work on MDF
-  
-  # Work on M1G
   
   #Fourier_decomp(qx, qz, F, phase=None, N=201, xmin=-100, xmax=100, zmin=-100, zmax=100):
   
