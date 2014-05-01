@@ -6,15 +6,28 @@ import matplotlib.pyplot as plt
 from lmfit import minimize, Parameters
 import lmfit
 
-def read_data(fileobj, skip=0, data_type="F"):
+def read_data_4_columns(filename="ripple_082-085.dat", skip=1):
   """
   Read a four-column ASCII file and parse each column into a python list.
+  Lines starting with # will be ignored, i.e., # signals a comment line.
   
-  fileobj: input file object
+  The input file must be formatted as "h k q |F|", where 
+  h, k: ripple main and side peak index
+  q: magnitude of scattering vector, q
+  |F|: absolute value of form factor, usually |F(h=1,k=0)|=100 is the 
+     normalization, but this is not necessary for the program to work.
+  For example, an input file should look like:
+  
+  h  k      q    |F|
+  1 -1  0.107   78.9 
+  1  0  0.100  100.0
+  2  0  0.200   45.6
+  2  1  0.205   56.7
+  
+  filename: input file name
   skip: the number of header lines that will be skipped
-  data_type: whether input data are form factor or intensity. If intensity,
-             the correction for oriented sample will be applied.
   """
+  fileobj = open(filename, 'r')
   # ignore the first skip lines
   for i in range(skip):
     fileobj.readline()
@@ -24,6 +37,40 @@ def read_data(fileobj, skip=0, data_type="F"):
     hval, kval, qval, Fval = line.split()
     h.append(hval); k.append(kval); q.append(qval); F.append(Fval) 
   return h, k, q, F
+
+
+def read_data_6_columns(filename="ripple_082-085.dat", skip=1):
+  """
+  Read a six-column ASCII file and parse each column into a python list.
+  Lines starting with # will be ignored, i.e., # signals a comment line.
+
+  The input file must be formatted as "h k qr qz q |F|", where 
+  h, k: ripple main and side peak index
+  qr, qz, q: in-plane, out-of-plane, and total scattering vector
+  |F|: absolute value of form factor, usually |F(h=1,k=0)|=100 is the 
+     normalization, but this is not necessary for the program to work.
+  For example, an input file should look like:
+  
+  h  k      qr      qz      q   |F|
+  1 -1  0.0434  0.1043 0.1129  83.4 
+  1  0  0.0000  0.1106 0.1106 100.0
+  2  0  0.0000  0.2190 0.2190  36.1
+  2  1  0.0429  0.2253 0.2294  51.6
+  
+  filename: input file name
+  skip: the number of header lines that will be skipped
+  """
+  fileobj = open(filename, 'r')
+  # ignore the first skip lines
+  for i in range(skip):
+    fileobj.readline()
+  h = []; k = []; qr =[]; qz =[]; q = []; F = []
+  lines = fileobj.readlines()
+  for line in lines:
+    hval, kval, rval, zval, qval, Fval = line.split()
+    h.append(hval); k.append(kval); qr.append(rval); qz.append(zval)
+    q.append(qval); F.append(Fval) 
+  return h, k, qr, qz, q, F  
   
 
 ###############################################################################
@@ -33,6 +80,12 @@ class BaseRipple(object):
   in turn will be inherited by transbilayer subclasses. This base class mainly
   deals with the ripple lattice parameters, namely, D, lambda_r, and gamma.
   Methods such as showing 1D and 2D edp are also implemented.
+  
+  h, k: ripple phase main and side peak index
+  qx, qz, q: scattering vector (qx is approx. equal to qr)
+  F, I: form factor and intensity of each peak
+  D, lambda_r, gamma: D-spacing, ripple wavelength, and oblique angle
+  sigma: uncertainties in intensity (equal to sqrt(I) = F)  
   """
   def __init__(self, h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, 
                gamma=1.7, I=None):
@@ -44,18 +97,9 @@ class BaseRipple(object):
     self.latt_par.add('D', value=D, vary=True)
     self.latt_par.add('lambda_r', value=lambda_r, vary=True)
     self.latt_par.add('gamma', value=gamma, vary=True)
-    if qx is None:
-      self.qx = self._q_x()
-    else:
-      self.qx = np.array(qx, float)
-    if qz is None:
-      self.qz = self._q_z()
-    else:
-      self.qz = np.array(qz, float)
-    if I is None:
-      self.I = self.F**2
-    else:
-      self.I = I
+    self.qx = np.array(qx, float)
+    self.qz = np.array(qz, float)
+    self.I = I
     self.sigma = np.absolute(self.F)
       
   def _set_phase(self):
@@ -64,7 +108,7 @@ class BaseRipple(object):
     """
     self.phase = np.sign(self._model())
     
-  def show_2D_edp(self, N=201, xmin=-100, xmax=100, zmin=-100, zmax=100):
+  def show_2D_edp(self, xmin=-100, xmax=100, zmin=-100, zmax=100, N=201):
     """
     Fourier-reconstruct a 2D map of the electron density profile. Calculate
     EDP at N points along x and N points along z. The units are in Angstrom.
@@ -83,6 +127,7 @@ class BaseRipple(object):
     X.shape = (N, N)
     Y.shape = (N, N)
     Z.shape = (N, N)
+    plt.figure()
     plt.contourf(X, Y, Z)
     
   def show_1D_edp(self, start=(-10,25), end=(30,-20), N=100):
@@ -103,6 +148,7 @@ class BaseRipple(object):
     rho = np.array(rho, float)
     X = rho[:,0]
     Y = rho[:,1]
+    plt.figure()
     plt.plot(X, Y)
     
   def report_model_F(self):
@@ -115,6 +161,16 @@ class BaseRipple(object):
                                    self._model(), self.F):
       print("{0: 1d} {1: 1d}  {2: .3f} {3: .3f} {4: .3f} {5: 7.2f} {6: 7.2f}"
             .format(a, b, c, d, e, f, g))
+  
+  def report_calc_lattice(self):
+    """
+    Show the calculated (fitted) q values for each peak along with the input
+    data
+    """
+    print(" h  k  q_obs q_calc")
+    q_calc = np.sqrt(self.calc_q_square())
+    for a, b, c, d in zip(self.h, self.k, self.q, q_calc):
+      print("{0: 1d} {1: 1d} {2: .3f} {3: .3f}".format(a, b, c, d))
   
   def report_lattice(self):
     """
@@ -135,19 +191,13 @@ class BaseRipple(object):
     """
     params is a dummy variable, necessary for lmfit.minimize to work
     """
-    model = self.model_lattice()
-    data = self.q**2
+    model = np.sqrt(self.calc_q_square())
+    data = np.absolute(self.q)
     return (model -data)
-    
-  def model_lattice(self):
-    D = self.latt_par['D'].value
-    lambda_r = self.latt_par['lambda_r'].value
-    gamma = self.latt_par['gamma'].value   
-    return self._q_square()
        
-  def _q_square(self):
+  def calc_q_square(self):
     """ 
-    Return q = qx^2 + qz^2 in the ripple phase LAXS.
+    Return q^2 = qx^2 + qz^2 using the values of lambda_r, D, and gamma.
     """
     return self._q_x()**2 + self._q_z()**2    
   
@@ -167,6 +217,13 @@ class BaseRipple(object):
     lambda_r = self.latt_par['lambda_r'].value
     gamma = self.latt_par['gamma'].value
     return 2*np.pi*(self.h/D - self.k/lambda_r/np.tan(gamma))
+  
+  def set_qxqz(self):
+    """
+    Set qx and qz arrays with the value of D, lambda_r, and gamma
+    """
+    self.qx = self._q_x()
+    self.qz = self._q_z()
     
   def report_edp(self):
     """
@@ -195,7 +252,6 @@ class BaseRipple(object):
     #model = np.absolute(self._model())
     #return (data - model) 
       
-    
   def _model(self):
     """
     Return the model form factor. The return object is a numpy array with
@@ -208,7 +264,57 @@ class BaseRipple(object):
     F_10 = model[(self.h==1)&(self.k==0)]
     model = model / np.absolute(F_10) * 100 * rho_M
     return model
-  
+    
+  def export_2D_edp(self, filename="2Dedp.dat", xmin=-100, xmax=100, 
+                    zmin=-100, zmax=100, N=201):
+    """
+    Export the Fourier-reconstructed 2D electron density (ED) map as an ASCII 
+    file consisting of three columns, x, z, and ED. 
+    Calculate EDP at N points along x and N points along z. The units are in 
+    Angstrom.
+    """
+    rho_xz = []
+    xgrid = np.linspace(xmin, xmax, num=N)
+    zgrid = np.linspace(zmin, zmax, num=N)
+    for x in xgrid:
+      for z in zgrid:
+        tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
+        rho_xz.append([x, z, tmp.sum(axis=0)])
+    rho_xz = np.array(rho_xz, float)  
+    X, Y, Z= rho_xz[:,0], rho_xz[:,1], rho_xz[:,2]
+    with open(filename, 'w') as f:
+      f.write("x z ED\n")
+      for x, y, z in zip(X, Y, Z):
+        f.write("{0: 3.1f} {1: 3.1f} {2: }\n".format(x, y, z))
+
+  def export_1D_edp(self, filename="1Dedp.dat", start=(-10,25), end=(30,-20), 
+                    N=100):
+    """
+    Export the Fourier-reconstructed EDP along a line connecting the start and 
+    end points as an ASCII file consisting of four columns, x, z, distance from
+    the start point, and EDP.
+    
+    filename: output file name
+    start=(xmax,zmax)
+    end=(xmax,zmax)
+    N: number of points on which ED gets calculated
+    """
+    rho = []
+    x0, z0 = start
+    x1, z1 = end
+    xpoints = np.linspace(x0, x1, N)
+    zpoints = np.linspace(z0, z1, N)
+    for x, z in zip(xpoints, zpoints):
+      tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
+      dist = np.sqrt((x-x0)**2 + (z-z0)**2)
+      rho.append([x, z, dist, tmp.sum(axis=0)])
+    rho = np.array(rho, float)
+    X, Z, DIST, EDP = rho[:,0], rho[:,1], rho[:,2], rho[:,3]
+    with open(filename, 'w') as f:
+      f.write("x z dist ED\n")
+      for x, z, dist, edp in zip(X, Z, DIST, EDP):
+        f.write("{0: 3.1f} {1: 3.1f} {2: 3.1f} {3: }\n".format(x, z, dist, edp))
+    
 
 ###############################################################################
 class Sawtooth(BaseRipple):
@@ -388,7 +494,7 @@ def F_T(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,rhom=51.38,rhm=2.2,xh=20.1,psi=5):
 
 def reproduce_WenjunSun_PNAS():
   # read data to be fitted
-  infile = open("WackWebb2.dat", 'r')
+  infile = open('WackWebb2.dat', 'r')
   h, k, q, F = read_data(infile, skip=1)
   h = np.array(h, int)
   k = np.array(k, int)
@@ -416,28 +522,32 @@ def reproduce_WenjunSun_PNAS():
 
 if __name__ == "__main__":
 #  reproduce_WenjunSun_PNAS()
+
   # read data to be fitted
-  infile = open('ripple_066-067.dat', 'r')
-  h, k, q, F = read_data(infile, skip=1)
+#  infilename = 'ripple_082-085.dat'
+#  infilename = 'WackWebb2.dat'
+#  infilename = 'ripple_082-085_mod1.dat'
+  infilename = 'ripple_082-085_mod2.dat'
+  h, k, q, F = read_data_4_columns(infilename, skip=1)
   h = np.array(h, int)
   k = np.array(k, int)
   q = np.array(q, float)
   F = np.array(F, float) 
   
   # Work on SDF
-  sdf = SDF(h, k, F, q, qx=None, qz=None, D=59.1, lambda_r=141.7, gamma=1.7174, 
-            x0=123, A=22, rho_M=2, R_HM=4.2, X_h=16.1, psi=0.08727)   
+  sdf = SDF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=141.7, gamma=1.7174, 
+            x0=103, A=18.6, rho_M=1, R_HM=2.2, X_h=20.1, psi=0.0872)   
   sdf.fit_lattice()
   sdf.fit_edp()
   sdf.report_edp()
   
   # Work on MDF
-  mdf = MDF(h, k, F, q, qx=None, qz=None, D=57.94, lambda_r=141.7, gamma=1.7174, 
-            x0=103, A=20.0, f1=1, f2=0, rho_M=1, R_HM=2.2, 
-            X_h=20.4, psi=0.1571) 
-#  mdf.fit_lattice()
-#  mdf.fit_edp()
-#  mdf.report_edp()  
+  mdf = MDF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=141.7, gamma=1.7174, 
+            x0=103, A=18.6, f1=1, f2=0, rho_M=1, R_HM=2.2, 
+            X_h=20.1, psi=0.0872) 
+  mdf.fit_lattice()
+  mdf.fit_edp()
+  mdf.report_edp()  
 
   
   
