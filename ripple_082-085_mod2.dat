@@ -1,3 +1,5 @@
+# This file only includes peaks that were reported by Wack and Webb.
+# Also, (1,0) and (2,0) were multiplied by 1.5.
 h  k       q    |F|
 1 -1  0.1129   83.4
 1  0  0.1106  150.0

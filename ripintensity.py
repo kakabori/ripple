@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 from numpy import pi, sin, cos, tan, exp
 import matplotlib as ppl
@@ -6,39 +7,92 @@ import matplotlib.pyplot as plt
 from lmfit import minimize, Parameters
 import lmfit
 
-def read_data_4_columns(filename="ripple_082-085.dat", skip=1):
+def read_data_4_columns(filename="ripple_082-085.dat"):
   """
   Read a four-column ASCII file and parse each column into a python list.
   Lines starting with # will be ignored, i.e., # signals a comment line.
   
-  The input file must be formatted as "h k q |F|", where 
+  filename: input file name
+  
+  The input file must be formatted as "h k q I", where 
   h, k: ripple main and side peak index
   q: magnitude of scattering vector, q
-  |F|: absolute value of form factor, usually |F(h=1,k=0)|=100 is the 
-     normalization, but this is not necessary for the program to work.
+  I: observed intensity
   For example, an input file should look like:
   
-  h  k      q    |F|
+  # Example 1
+  # =========
+  # Comment goes here
+  # Another comment line
+  h  k      q      I
   1 -1  0.107   78.9 
   1  0  0.100  100.0
   2  0  0.200   45.6
   2  1  0.205   56.7
   
-  filename: input file name
-  skip: the number of header lines that will be skipped
+  # Example 2 (include combined peaks)
+  # In this case, separate indices by comma without any space.
+  # The example shows a case in which different k's are combined.
+  # ==========================================================
+      h      k         q      I
+    1,1   -1,0  combined  183.4
+      1      1    0.1241   43.8
+  2,2,2 -1,0,1  combined  180.0
+  
+  # Example 3 (combine different h's)
+  # =======================================
+        h         k         q      I
+      1,1      -1,0  combined  183.4
+  1,2,2,2  1,-1,0,1  combined  223.8
   """
+  # Process comment and header lines
   fileobj = open(filename, 'r')
-  # ignore the first skip lines
-  for i in range(skip):
-    fileobj.readline()
-  h = []; k = []; q = []; F = []
+  while True:
+    s = fileobj.readline()
+    if s.startswith('#'):
+      print(s)
+      continue
+    elif s.startswith('h'):
+      break
+    else:
+      print("Any comments (including an empty line) should start with #.")
+      print("Please fix your input file.")
+      sys.exit(1)
+  
+  # Go through data points  
+  hl = []; kl = []; ql = []; Il = []; combl = []
   lines = fileobj.readlines()
+  counter = 1
   for line in lines:
-    hval, kval, qval, Fval = line.split()
-    h.append(hval); k.append(kval); q.append(qval); F.append(Fval) 
-  return h, k, q, F
+    # This ignores an empty line
+    line = line.rstrip()
+    if not line: 
+      continue
+    h, k, q, I = line.split()
+    h = map(int, h.split(','))
+    k = map(int, k.split(','))
+    I = float(I)
+    if len(h) == 1 and len(k) == 1:
+      q = float(q)
+      hl.extend(h); kl.extend(k); ql.append(q); Il.append(I)
+    if len(h) != len(k):
+      print("Please check line {0} to make sure that h and k ".format(counter))
+      print("columns have the same number of items. For example,")
+      print("1,1,1 -1,0,1 to combine (1,-1), (1,0), and (1,1) peaks.")
+      sys.exit(1)
+    combl.append((tuple(h), tuple(k), I))
+    counter += 1
+    
+  return hl, kl, ql, Il, combl
 
 
+def nonblank_lines(f):
+  for l in f:
+    line = l.rstrip()
+    if line:
+      yield line
+            
+            
 def read_data_6_columns(filename="ripple_082-085.dat", skip=1):
   """
   Read a six-column ASCII file and parse each column into a python list.
@@ -83,34 +137,62 @@ class BaseRipple(object):
   
   h, k: ripple phase main and side peak index
   qx, qz, q: scattering vector (qx is approx. equal to qr)
-  F, I: form factor and intensity of each peak
+  I: observed intensity of each peak, before geometric correction
   D, lambda_r, gamma: D-spacing, ripple wavelength, and oblique angle
-  sigma: uncertainties in intensity (equal to sqrt(I) = F)  
+  sigma: uncertainties in intensity (equal to sqrt(I) = F)
+  mask: mask out peaks that are set to False. Masked peak will be excluded from 
+        the nonlinear fit. Only work for individual peaks, not combined ones.
+  comb: a list of combined peaks. Each element in the list is a tuple,
+        ((list of h index), (list of k index), F), where lists of index tells
+        which peaks are combined to give the value of F. 
   """
-  def __init__(self, h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, 
-               gamma=1.7, I=None):
+  def __init__(self, h, k, I=None, q=None, qx=None, qz=None, D=58, lambda_r=140, 
+               gamma=1.7, comb=None):
     self.h = np.array(h, int)
     self.k = np.array(k, int)
     self.q = np.array(q, float)
-    self.F = np.array(F, float)
+    self.I = np.array(I, float)
     self.latt_par = Parameters()
     self.latt_par.add('D', value=D, vary=True)
     self.latt_par.add('lambda_r', value=lambda_r, vary=True)
     self.latt_par.add('gamma', value=gamma, vary=True)
     self.qx = np.array(qx, float)
     self.qz = np.array(qz, float)
-    self.I = I
-    self.sigma = np.absolute(self.F)
-      
+    self.sigma = np.sqrt(self.I)
+    self.mask = np.ones(self.h.size, dtype=bool)
+    self.combined_peaks = comb
+    self.h_combined = np.array([])
+    self.k_combined = np.array([])
+    self.I_combined = np.array([])
+    for x in comb:
+      np.append(self.h_combined, x[0])
+      np.append(self.k_combined, x[1])
+      np.append(self.I_combined, x[2])
+    self.sigma_combined = np.sqrt(self.I_combined) 
+  
+  def show_mask(self):
+    """Show the mask array."""
+    print(" h  k  mask")
+    for a, b, c in zip(self.h, self.k, self.mask):
+      print("{0: 1d} {1: 1d}  {2:s}".format(a, b, c))
+    
+  def set_mask(self, h, k, value):
+    """Set a mask element to True/False"""
+    self.mask[(self.h==h)&(self.k==k)] = value
+    
+  def get_mask(self, h, k):
+    """Get a mask element"""
+    return self.mask[(self.h==h)&(self.k==k)]
+  
   def _set_phase(self):
     """
     model method needs to be defined in the subclasses
     """
     self.phase = np.sign(self._model())
     
-  def show_2D_edp(self, xmin=-100, xmax=100, zmin=-100, zmax=100, N=201):
+  def plot_2D_edp(self, xmin=-100, xmax=100, zmin=-100, zmax=100, N=201):
     """
-    Fourier-reconstruct a 2D map of the electron density profile. Calculate
+    Plot Fourier-reconstruct a 2D map of the electron density profile. Calculate
     EDP at N points along x and N points along z. The units are in Angstrom.
     """
     rho_xz = []
@@ -130,9 +212,9 @@ class BaseRipple(object):
     plt.figure()
     plt.contourf(X, Y, Z)
     
-  def show_1D_edp(self, start=(-10,25), end=(30,-20), N=100):
+  def plot_1D_edp(self, start=(-10,25), end=(30,-20), N=100):
     """
-    Show Fourier-reconstructed EDP along a line connecting the start and end points
+    Plot Fourier-reconstructed EDP along a line connecting the start and end points
     N: number of points on which ED gets calculated
     Call plt.show() to actually display the plot.
     """
@@ -193,7 +275,7 @@ class BaseRipple(object):
     """
     model = np.sqrt(self.calc_q_square())
     data = np.absolute(self.q)
-    return (model -data)
+    return (model[self.mask] -data[self.mask])
        
   def calc_q_square(self):
     """ 
@@ -218,12 +300,18 @@ class BaseRipple(object):
     gamma = self.latt_par['gamma'].value
     return 2*np.pi*(self.h/D - self.k/lambda_r/np.tan(gamma))
   
-  def set_qxqz(self):
+  def set_qxqz_with_combined(self):
     """
-    Set qx and qz arrays with the value of D, lambda_r, and gamma
+    Set qx and qz arrays with the value of D, lambda_r, and gamma. Include
+    combined peaks.
     """
-    self.qx = self._q_x()
-    self.qz = self._q_z()
+    D = self.latt_par['D'].value
+    lambda_r = self.latt_par['lambda_r'].value
+    gamma = self.latt_par['gamma'].value
+    h = np.append(self.h, self.h_combined)
+    k = np.append(self.k, self.k_combined)
+    self.qx = 2*np.pi*k/lambda_r
+    self.qz = 2*np.pi*(h/D - k/lambda_r/np.tan(gamma))
     
   def report_edp(self):
     """
@@ -236,16 +324,22 @@ class BaseRipple(object):
     """
     Start a non-linear least squared fit for electron density profile
     """
-    self.edp = minimize(self._residual, self.edp_par)
+    self.set_qxqz_with_combined()
+    self.edp = minimize(self._residual_edp, self.edp_par)
     self._set_phase()
     
-  def _residual(self, params):
+  def _residual_edp(self, params):
     """
     Return the individual residuals.  
     """
-    data = self.F**2
-    model = np.absolute(self._model())**2
-    return (data-model) / self.sigma  
+    data = np.append(self.I, self.I_combined)
+    model_full = np.absolute(self._model())**2
+    for x in self.combined_peaks:
+      
+    model_full[()&()]
+    sigma = np.append(self.sigma, self.sigma_combined)
+    return (data[self.mask]-model[self.mask]) / sigma[self.mask] 
+        
     # The following three lines do not reproduce Sun's results, which proves
     # that the fits were done through intensity, not form factor.
     #data = self.F
@@ -320,7 +414,7 @@ class BaseRipple(object):
 class Sawtooth(BaseRipple):
   def __init__(self, h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, 
                gamma=1.7, x0=100, A=20):
-    super(Sawtooth, self).__init__(h, k, F, q, qx, qz, D, lambda_r, gamma)
+    super(Sawtooth, self).__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, I=None, comb)
     self.edp_par = Parameters()
     self.edp_par.add('x0', value=x0, vary=True)
     self.edp_par.add('A', value=A, vary=True)
@@ -343,14 +437,6 @@ class Sawtooth(BaseRipple):
     sec = (lr-x0) * np.cos(0.5*arg1) * np.sin(arg2) / lr / np.cos(0.5*arg2) / arg2 
     #sec = (-1)**self.k * (lr-x0) * sin(self.k*pi-w)/(self.k*pi-w)/lr
     return (fir + f1*sec + 2*f2*np.cos(w)/lr) 
-  
-  def _omega(self):
-    """
-    Return the intermediate variable, omega
-    """
-    x0 = self.edp_par['x0'].value
-    A = self.edp_par['A'].value
-    return 0.5 * (self.qx*x0 + self.qz*A)
 
 
 ###############################################################################
@@ -527,19 +613,23 @@ if __name__ == "__main__":
 #  infilename = 'ripple_082-085.dat'
 #  infilename = 'WackWebb2.dat'
 #  infilename = 'ripple_082-085_mod1.dat'
-  infilename = 'ripple_082-085_mod2.dat'
-  h, k, q, F = read_data_4_columns(infilename, skip=1)
+  infilename = 'ripple_082-085.dat'
+  h, k, q, F, comb = read_data_4_columns(infilename)
   h = np.array(h, int)
   k = np.array(k, int)
   q = np.array(q, float)
   F = np.array(F, float) 
   
   # Work on SDF
-  sdf = SDF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=141.7, gamma=1.7174, 
-            x0=103, A=18.6, rho_M=1, R_HM=2.2, X_h=20.1, psi=0.0872)   
-  sdf.fit_lattice()
-  sdf.fit_edp()
-  sdf.report_edp()
+#  sdf = SDF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=141.7, gamma=1.7174, 
+#            x0=103, A=18.6, rho_M=1, R_HM=2.2, X_h=20.1, psi=0.0872) 
+#  sdf.set_mask(h=1, k=2, value=False)
+#  sdf.set_mask(h=3, k=5, value=False)
+#  sdf.set_mask(h=3, k=6, value=False)
+#  sdf.set_mask(h=4, k=0, value=False)
+#  sdf.fit_lattice()
+#  sdf.fit_edp()
+#  sdf.report_edp()
   
   # Work on MDF
   mdf = MDF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=141.7, gamma=1.7174, 
