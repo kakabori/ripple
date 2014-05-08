@@ -7,9 +7,34 @@ import matplotlib.pyplot as plt
 from lmfit import minimize, Parameters
 import lmfit
 
+
+class Peak(object):
+  def __init__(self, hs, ks, I, sigma=1):
+    if len(hs) == len(ks):
+      self.hs = np.array(hs, int)
+      self.ks = np.array(ks, int)
+      self.I = float(I)
+      self.sigma = float(sigma)
+    else:
+      print("Dude, length of hs and ks are different")
+  
+class CombinedPeaks(object):
+  """
+  input hs and ks should be a list, tuple, or array
+  I and sigma are floating points
+  """
+  def __init__(self, hs, ks, I, sigma=1):
+    p = Peak(hs, ks, I, sigma)
+    self.peak_list = []
+    self.peak_list.append(p)
+    
+  def add_peak(self, hs, ks, I, sigma=1):
+    p = Peak(hs, ks, I, sigma)
+    self.peak_list.append(p)
+  
 def read_data_4_columns(filename="ripple_082-085.dat"):
   """
-  Read a four-column ASCII file and parse each column into a python list.
+  Read a five-column ASCII file and parse each column into a python list.
   Lines starting with # will be ignored, i.e., # signals a comment line.
   
   filename: input file name
@@ -18,32 +43,33 @@ def read_data_4_columns(filename="ripple_082-085.dat"):
   h, k: ripple main and side peak index
   q: magnitude of scattering vector, q
   I: observed intensity
+  sigma: uncertainty in intensity
   For example, an input file should look like:
   
   # Example 1
   # =========
   # Comment goes here
   # Another comment line
-  h  k      q      I
-  1 -1  0.107   78.9 
-  1  0  0.100  100.0
-  2  0  0.200   45.6
-  2  1  0.205   56.7
+  h  k      q      I  sigma
+  1 -1  0.107   78.9    8.1
+  1  0  0.100  100.0   10.0
+  2  0  0.200   45.6    6.9
+  2  1  0.205   56.7    8.0
   
   # Example 2 (include combined peaks)
   # In this case, separate indices by comma without any space.
   # The example shows a case in which different k's are combined.
   # ==========================================================
-      h      k         q      I
-    1,1   -1,0  combined  183.4
-      1      1    0.1241   43.8
-  2,2,2 -1,0,1  combined  180.0
+      h      k         q      I  sigma
+    1,1   -1,0  combined  183.4      1
+      1      1    0.1241   43.8      1
+  2,2,2 -1,0,1  combined  180.0      1
   
   # Example 3 (combine different h's)
   # =======================================
-        h         k         q      I
-      1,1      -1,0  combined  183.4
-  1,2,2,2  1,-1,0,1  combined  223.8
+        h         k         q      I  sigma
+      1,1      -1,0  combined  183.4      1
+  1,2,2,2  1,-1,0,1  combined  223.8      1
   """
   # Process comment and header lines
   fileobj = open(filename, 'r')
@@ -60,7 +86,7 @@ def read_data_4_columns(filename="ripple_082-085.dat"):
       sys.exit(1)
   
   # Go through data points  
-  hl = []; kl = []; ql = []; Il = []; combl = []
+  hl = []; kl = []; ql = []; Il = []; sl =[]; combl = []
   lines = fileobj.readlines()
   counter = 1
   for line in lines:
@@ -68,22 +94,23 @@ def read_data_4_columns(filename="ripple_082-085.dat"):
     line = line.rstrip()
     if not line: 
       continue
-    h, k, q, I = line.split()
+    h, k, q, I, s = line.split()
     h = map(int, h.split(','))
     k = map(int, k.split(','))
     I = float(I)
+    s = float(s)
     if len(h) == 1 and len(k) == 1:
       q = float(q)
-      hl.extend(h); kl.extend(k); ql.append(q); Il.append(I)
+      hl.extend(h); kl.extend(k); ql.append(q); Il.append(I); sl.append(s)
     if len(h) != len(k):
       print("Please check line {0} to make sure that h and k ".format(counter))
       print("columns have the same number of items. For example,")
       print("1,1,1 -1,0,1 to combine (1,-1), (1,0), and (1,1) peaks.")
       sys.exit(1)
-    combl.append((tuple(h), tuple(k), I))
+    combl.append((tuple(h), tuple(k), I, s))
     counter += 1
     
-  return hl, kl, ql, Il, combl
+  return hl, kl, ql, Il, sl, combl
 
 
 def nonblank_lines(f):
@@ -146,7 +173,7 @@ class BaseRipple(object):
         ((list of h index), (list of k index), F), where lists of index tells
         which peaks are combined to give the value of F. 
   """
-  def __init__(self, h, k, I=None, q=None, qx=None, qz=None, D=58, lambda_r=140, 
+  def __init__(self, h, k, I=None, sigma=None, q=None, D=58, lambda_r=140, 
                gamma=1.7, comb=None):
     self.h = np.array(h, int)
     self.k = np.array(k, int)
@@ -156,9 +183,7 @@ class BaseRipple(object):
     self.latt_par.add('D', value=D, vary=True)
     self.latt_par.add('lambda_r', value=lambda_r, vary=True)
     self.latt_par.add('gamma', value=gamma, vary=True)
-    self.qx = np.array(qx, float)
-    self.qz = np.array(qz, float)
-    self.sigma = np.sqrt(self.I)
+    self.sigma = sigma
     self.mask = np.ones(self.h.size, dtype=bool)
     self.combined_peaks = comb
     self.h_combined = np.array([])
