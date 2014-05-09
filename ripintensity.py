@@ -260,17 +260,42 @@ class BaseRipple(object):
     Y = rho[:,1]
     plt.figure()
     plt.plot(X, Y)
-    
+  
+  def _calc_F_from_observed_I(self):
+    """
+    The name says it all. Only display individual peaks, not combined ones.
+    """
+    global wavelength
+    ret = np.array(self.I)
+    self._set_qxqz(self.h, self.k)
+    ret[self.k==0] = ret[self.k==0] * self.qz[self.k==0]
+    ret[self.k!=0] = ret[self.k!=0] / wavelength / self.qz[self.k!=0] * 4 * \
+                   np.pi * np.pi * np.absolute(self.qx[self.k!=0])
+    ret = np.sqrt(ret)
+    F_10 = ret[(self.h==1)&(self.k==0)]
+    ret = ret / F_10 * 100
+    return ret
+  
+  def report_model_F(self):
+    """
+    Show the model form factor.
+    """
+    self._set_qxqz(self.h, self.k)
+    F = self._calc_F_from_observed_I()
+    print(" h  k      q   model       F")
+    for a, b, c, d, e in zip(self.h, self.k, self.q, self._model_F(), F):
+      print("{0: 1d} {1: 1d} {2: .3f} {3: 7.2f} {4: 7.2f}".format(a, b, c, d, e))
+      
   def report_model_I(self):
     """
     Show the model observed intensity along with the experimental I. Need a model
     method to call, which should be implemented in a derived class.
     """
     self._set_qxqz(self.h, self.k)
-    print(" h  k      qx     qz      q      model          I")
+    print(" h  k     qx     qz      q      model          I")
     for a, b, c, d, e, f, g in zip(self.h, self.k, self.qx, self.qz, self.q, 
                                    self._model_observed_I(), self.I):
-      print("{0: 1d} {1: 1d}  {2: .3f} {3: .3f} {4: .3f} {5: 10.3f} {6: 10.3f}"
+      print("{0: 1d} {1: 1d} {2: .3f} {3: .3f} {4: .3f} {5: 10.3f} {6: 10.3f}"
             .format(a, b, c, d, e, f, g))
   
   def report_calc_lattice(self):
@@ -649,14 +674,14 @@ if __name__ == "__main__":
 
   
   # Work on SDF
-  sdf = SDF(h, k, q, I, sigma, D=58, lambda_r=141.7, gamma=1.7174, 
-            x0=103, A=18.6, rho_M=1, R_HM=2.2, X_h=20.1, psi=0.0872) 
+  sdf = SDF(h, k, q, I, sigma, D=57.54, lambda_r=142.88, gamma=1.706, 
+            x0=102.8, A=21.1, rho_M=1.04, R_HM=2.52, X_h=19.7, psi=0.0823) 
   sdf.set_combined_peaks(combined)
 #  sdf.set_mask(h=1, k=2, value=False)
 #  sdf.set_mask(h=3, k=5, value=False)
 #  sdf.set_mask(h=3, k=6, value=False)
 #  sdf.set_mask(h=4, k=0, value=False)
-  sdf.fit_lattice()
+#  sdf.fit_lattice()
 #  sdf.fit_edp()
 #  sdf.report_edp()
   
