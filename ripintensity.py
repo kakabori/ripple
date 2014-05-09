@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 from lmfit import minimize, Parameters
 import lmfit
 
-
 class Peak(object):
   def __init__(self, hs, ks, I, sigma=1):
     if len(hs) == len(ks):
@@ -23,14 +22,36 @@ class CombinedPeaks(object):
   input hs and ks should be a list, tuple, or array
   I and sigma are floating points
   """
-  def __init__(self, hs, ks, I, sigma=1):
-    p = Peak(hs, ks, I, sigma)
+  def __init__(self):
     self.peak_list = []
-    self.peak_list.append(p)
     
   def add_peak(self, hs, ks, I, sigma=1):
     p = Peak(hs, ks, I, sigma)
     self.peak_list.append(p)
+    
+  def get_all_hkIsigma(self):
+    """
+    Return hs, ks, I, sigma
+    """
+    ret1 = []
+    ret2 = []
+    ret3 = []
+    ret4 = []
+    for p in self.peak_list:
+      np.append(ret1, p.hs)
+      np.append(ret2, p.ks)
+      np.append(ret3, p.I)
+      np.append(ret4, p.sigma)
+    return ret1, ret2, ret3, ret4
+    
+  def shrink(self, arr):
+    index = 0
+    ret = []
+    for p in self.peak_list:
+      ret.append(np.sum(arr[index:index+len(p.hs)]))
+      index = index + len(p.hs)
+      
+    return np.array(ret)
   
 def read_data_4_columns(filename="ripple_082-085.dat"):
   """
@@ -174,7 +195,7 @@ class BaseRipple(object):
         which peaks are combined to give the value of F. 
   """
   def __init__(self, h, k, I=None, sigma=None, q=None, D=58, lambda_r=140, 
-               gamma=1.7, comb=None):
+               gamma=1.7):
     self.h = np.array(h, int)
     self.k = np.array(k, int)
     self.q = np.array(q, float)
@@ -185,15 +206,24 @@ class BaseRipple(object):
     self.latt_par.add('gamma', value=gamma, vary=True)
     self.sigma = sigma
     self.mask = np.ones(self.h.size, dtype=bool)
-    self.combined_peaks = comb
-    self.h_combined = np.array([])
-    self.k_combined = np.array([])
-    self.I_combined = np.array([])
-    for x in comb:
-      np.append(self.h_combined, x[0])
-      np.append(self.k_combined, x[1])
-      np.append(self.I_combined, x[2])
-    self.sigma_combined = np.sqrt(self.I_combined) 
+    self.comb_peaks = CombinedPeaks()
+
+  def set_combined_peaks(self, comb):
+    """
+    comb is a list of lists. Within each are four elements. The first elememt
+    is a tuple of h indicies. The second is a tuple of k indicies. The third
+    is the sum of intensity of the individual indexed peaks. The last is
+    the uncertainty on the sum of intensity.
+    
+    format: [[(h1a, h1b, h1c), (k1a, k1b, k1c), I1, sigma1], 
+             [(h2a, h2b), (k2a, k2b), I2, sigma2], ...
+            ]
+    , where (h1a,k1a), (h1b,k1b), etc. are the Miller indicies. The first list
+    in the example indicates that three peaks were combined to give the sum
+    of I1 with sigma1 error. The second list means two peaks were combined.
+    """
+    for c in comb:
+      self.comb_peaks.add_peak(hs=c[0], ks=c[1], I=c[2], sigma=c[3])
   
   def show_mask(self):
     """Show the mask array."""
@@ -291,8 +321,7 @@ class BaseRipple(object):
     Start a non-linear least squared fit for lattice parameters.
     """
     self.lattice = minimize(self._residual_lattice, self.latt_par)    
-    self.qx = self._q_x()
-    self.qz = self._q_z()
+    self.set_qxqz()
 
   def _residual_lattice(self, params):
     """
@@ -325,16 +354,14 @@ class BaseRipple(object):
     gamma = self.latt_par['gamma'].value
     return 2*np.pi*(self.h/D - self.k/lambda_r/np.tan(gamma))
   
-  def set_qxqz_with_combined(self):
+  def _set_qxqz(self, h, k):
     """
-    Set qx and qz arrays with the value of D, lambda_r, and gamma. Include
-    combined peaks.
+    Set qx and qz arrays with the value of D, lambda_r, and gamma, given
+    lists of h and k indicies.
     """
     D = self.latt_par['D'].value
     lambda_r = self.latt_par['lambda_r'].value
     gamma = self.latt_par['gamma'].value
-    h = np.append(self.h, self.h_combined)
-    k = np.append(self.k, self.k_combined)
     self.qx = 2*np.pi*k/lambda_r
     self.qz = 2*np.pi*(h/D - k/lambda_r/np.tan(gamma))
     
@@ -349,7 +376,6 @@ class BaseRipple(object):
     """
     Start a non-linear least squared fit for electron density profile
     """
-    self.set_qxqz_with_combined()
     self.edp = minimize(self._residual_edp, self.edp_par)
     self._set_phase()
     
@@ -357,13 +383,28 @@ class BaseRipple(object):
     """
     Return the individual residuals.  
     """
-    data = np.append(self.I, self.I_combined)
-    model_full = np.absolute(self._model())**2
-    for x in self.combined_peaks:
-      
-    model_full[()&()]
-    sigma = np.append(self.sigma, self.sigma_combined)
-    return (data[self.mask]-model[self.mask]) / sigma[self.mask] 
+    # Calculate the model for individual peaks
+    self._set_qxqz(self.h, self.k)
+    model_indiv = np.absolute(self._model())**2
+    # Apply the mask
+    model_indiv = model_indiv[self.mask]
+    
+    # Calculate the model for combined peaks
+    h, k, I, s = self.comb_peaks.get_all_hkIsigma()
+    self._set_qxqz(h, k)
+    model_comb = np.absolute(self._model())**2
+    # Combine peaks according to prescription given by CombinedPeaks object
+    model_comb = self.comb_peaks.shrink(model_comb)
+    
+    model = np.append(model_indiv, model_comb)
+    
+    # Apply the mask to data points for individual peaks
+    data = self.I[self.mask]
+    sigma = self.sigma[self.mask]
+    data = np.append(data, I)
+    sigma = np.append(sigma, s)
+
+    return (data-model) / sigma 
         
     # The following three lines do not reproduce Sun's results, which proves
     # that the fits were done through intensity, not form factor.
@@ -437,9 +478,9 @@ class BaseRipple(object):
 
 ###############################################################################
 class Sawtooth(BaseRipple):
-  def __init__(self, h, k, F, q, qx=None, qz=None, D=58, lambda_r=140, 
-               gamma=1.7, x0=100, A=20):
-    super(Sawtooth, self).__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, I=None, comb)
+  def __init__(self, h, k, I, sigma, q, D=58, lambda_r=140, gamma=1.7, 
+               x0=100, A=20):
+    super(Sawtooth, self).__init__(h, k, I, sigma, q, D, lambda_r, gamma)
     self.edp_par = Parameters()
     self.edp_par.add('x0', value=x0, vary=True)
     self.edp_par.add('A', value=A, vary=True)
@@ -466,10 +507,10 @@ class Sawtooth(BaseRipple):
 
 ###############################################################################
 class SDF(Sawtooth):
-  def __init__(self, h, k, F, q=None, qx=None, qz=None, D=58, lambda_r=140, 
-               gamma=1.7, x0=100, A=20, rho_M=20, R_HM=2, X_h=20, 
-               psi=0.087):
-    super(SDF, self).__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, x0, A)
+  def __init__(self, h, k, I, sigma, q, D=58, lambda_r=140, gamma=1.7, 
+               x0=100, A=20, 
+               rho_M=20, R_HM=2, X_h=20, psi=0.087):
+    super(SDF, self).__init__(h, k, I, sigma, q, D, lambda_r, gamma, x0, A)
     self.edp_par.add('rho_M', value=rho_M, vary=True)
     self.edp_par.add('R_HM', value=R_HM, vary=True)
     self.edp_par.add('X_h', value=X_h, vary=True)
@@ -489,11 +530,11 @@ class SDF(Sawtooth):
 
 ###############################################################################
 class MDF(SDF):
-  def __init__(self, h, k, F, q=None, qx=None, qz=None, D=58, lambda_r=140, 
-               gamma=1.7, x0=100, A=20, f1=1, f2=0, rho_M=20, R_HM=2, X_h=20, 
-               psi=0.087):
-    super(MDF, self).__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, x0, A, 
-                     rho_M, R_HM, X_h, psi)
+  def __init__(self, h, k, I, sigma, q, D=58, lambda_r=140, gamma=1.7, 
+               x0=100, A=20, f1=1, f2=0, 
+               rho_M=20, R_HM=2, X_h=20, psi=0.087):
+    super(MDF, self).__init__(h, k, I, sigma, q, D, lambda_r, gamma, x0, A, 
+                              rho_M, R_HM, X_h, psi)
     self.edp_par['f1'].value = f1
     self.edp_par['f2'].value = f2
     self.edp_par['f1'].vary = True
@@ -663,11 +704,3 @@ if __name__ == "__main__":
   mdf.fit_lattice()
   mdf.fit_edp()
   mdf.report_edp()  
-
-  
-  
-  #Fourier_decomp(qx, qz, F, phase=None, N=201, xmin=-100, xmax=100, zmin=-100, zmax=100):
-  
-  # Optimization using the Ripple class
-  #p = np.array([103, 18.6, 3, 20, 20.1, 0.0873])
-  #obj.fit_SDF(par=p)
