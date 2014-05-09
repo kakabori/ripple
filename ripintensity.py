@@ -261,19 +261,21 @@ class BaseRipple(object):
     plt.figure()
     plt.plot(X, Y)
   
-  def _calc_F_from_observed_I(self):
+  def _calc_F_from_observed_I(self, I):
+    ret = self._get_corrected_intensity(I)
+    ret = np.sqrt(ret)
+    return ret
+  
+  def _get_corrected_intensity(self, I):
     """
     The name says it all. Only display individual peaks, not combined ones.
     """
     global wavelength
-    ret = np.array(self.I)
+    ret = np.array(I)
     self._set_qxqz(self.h, self.k)
     ret[self.k==0] = ret[self.k==0] * self.qz[self.k==0]
     ret[self.k!=0] = ret[self.k!=0] / wavelength / self.qz[self.k!=0] * 4 * \
                    np.pi * np.pi * np.absolute(self.qx[self.k!=0])
-    ret = np.sqrt(ret)
-    F_10 = ret[(self.h==1)&(self.k==0)]
-    ret = ret / F_10 * 100
     return ret
   
   def report_model_F(self):
@@ -281,9 +283,13 @@ class BaseRipple(object):
     Show the model form factor.
     """
     self._set_qxqz(self.h, self.k)
-    F = self._calc_F_from_observed_I()
+    model_F = self._calc_F_from_observed_I(self._model_observed_I())
+    exp_F = self._calc_F_from_observed_I(self.I)
+    F_10 = exp_F[(self.h==1)&(self.k==0)]
+    exp_F = exp_F / F_10 * 100
+    model_F = model_F / F_10 * 100
     print(" h  k      q   model       F")
-    for a, b, c, d, e in zip(self.h, self.k, self.q, self._model_F(), F):
+    for a, b, c, d, e in zip(self.h, self.k, self.q, model_F, exp_F):
       print("{0: 1d} {1: 1d} {2: .3f} {3: 7.2f} {4: 7.2f}".format(a, b, c, d, e))
       
   def report_model_I(self):
@@ -292,11 +298,11 @@ class BaseRipple(object):
     method to call, which should be implemented in a derived class.
     """
     self._set_qxqz(self.h, self.k)
-    print(" h  k     qx     qz      q      model          I")
-    for a, b, c, d, e, f, g in zip(self.h, self.k, self.qx, self.qz, self.q, 
-                                   self._model_observed_I(), self.I):
-      print("{0: 1d} {1: 1d} {2: .3f} {3: .3f} {4: .3f} {5: 10.3f} {6: 10.3f}"
-            .format(a, b, c, d, e, f, g))
+    print(" h  k     qx     qz      q      model          I     sigma")
+    for a, b, c, d, e, f, g, h in zip(self.h, self.k, self.qx, self.qz, self.q, 
+                                   self._model_observed_I(), self.I, self.sigma):
+      print("{0: 1d} {1: 1d} {2: .3f} {3: .3f} {4: .3f} {5: 10.3f} {6: 10.3f} {7: 9.5f}"
+            .format(a, b, c, d, e, f, g, h))
   
   def report_calc_lattice(self):
     """
@@ -382,7 +388,8 @@ class BaseRipple(object):
     Return the individual residuals.  
     """
     h, k, I, s = self.comb_peaks.get_all_hkIsigma()
-    self._set_qxqz(np.append(self.h, h), np.append(self.k, k))
+    self._set_qxqz(np.append(self.h, np.array(h)), 
+                   np.append(self.k, np.array(k)))
     
     model = self._model_observed_I()
     
@@ -418,25 +425,25 @@ class BaseRipple(object):
     model form factor
     """
     global wavelength
+    rho_M = self.edp_par['rho_M'].value
     I = self._model_F()**2
     I[self.k==0] = I[self.k==0] / self.qz[self.k==0]
     I[self.k!=0] = I[self.k!=0] * wavelength * self.qz[self.k!=0] / 4 / \
                    np.pi / np.pi / np.absolute(self.qx[self.k!=0])
     I_10 = I[(self.h==1)&(self.k==0)]
-    I = I / I_10 * 10000
+    I = I / I_10 * 10000 * rho_M
     return I
     
   def _model_F(self):
     """
     Return the model form factor. The return object is a numpy array with
     its length equal to the length of qx.
-    """
-    rho_M = self.edp_par['rho_M'].value
+    """ 
     model = self.F_trans() * self.F_cont()
     # get F(h=1,k=0), which is used for normalization
     # rho_M is a common scaling factor => F(h=1,k=0) = 100*rho_M
     F_10 = model[(self.h==1)&(self.k==0)]
-    model = model / np.absolute(F_10) * 100 * rho_M
+    model = model / np.absolute(F_10)
     return model
     
   def export_2D_edp(self, filename="2Dedp.dat", xmin=-100, xmax=100, 
@@ -674,16 +681,16 @@ if __name__ == "__main__":
 
   
   # Work on SDF
-  sdf = SDF(h, k, q, I, sigma, D=57.54, lambda_r=142.88, gamma=1.706, 
+  sdf = SDF(h, k, q, I, sigma, D=57.75, lambda_r=144.18, gamma=1.711, 
             x0=102.8, A=21.1, rho_M=1.04, R_HM=2.52, X_h=19.7, psi=0.0823) 
   sdf.set_combined_peaks(combined)
 #  sdf.set_mask(h=1, k=2, value=False)
 #  sdf.set_mask(h=3, k=5, value=False)
 #  sdf.set_mask(h=3, k=6, value=False)
 #  sdf.set_mask(h=4, k=0, value=False)
-#  sdf.fit_lattice()
-#  sdf.fit_edp()
-#  sdf.report_edp()
+  sdf.fit_lattice()
+  sdf.fit_edp()
+  sdf.report_edp()
   
   # Work on MDF
 #  mdf = MDF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=141.7, gamma=1.7174, 
