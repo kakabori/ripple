@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from lmfit import minimize, Parameters
 import lmfit
 
+
 class Peak(object):
   def __init__(self, hs, ks, I, sigma=1):
     if len(hs) == len(ks):
@@ -45,6 +46,10 @@ class CombinedPeaks(object):
     return ret1, ret2, ret3, ret4
     
   def shrink(self, arr):
+    """
+    Shrink the input array, arr, according to the prescription given by
+    peak_list
+    """
     index = 0
     ret = []
     for p in self.peak_list:
@@ -52,8 +57,9 @@ class CombinedPeaks(object):
       index = index + len(p.hs)
       
     return np.array(ret)
-  
-def read_data_4_columns(filename="ripple_082-085.dat"):
+
+ 
+def read_data_5_columns(filename="ripple_082-085.dat"):
   """
   Read a five-column ASCII file and parse each column into a python list.
   Lines starting with # will be ignored, i.e., # signals a comment line.
@@ -123,12 +129,13 @@ def read_data_4_columns(filename="ripple_082-085.dat"):
     if len(h) == 1 and len(k) == 1:
       q = float(q)
       hl.extend(h); kl.extend(k); ql.append(q); Il.append(I); sl.append(s)
-    if len(h) != len(k):
+    elif len(h) != len(k):
       print("Please check line {0} to make sure that h and k ".format(counter))
       print("columns have the same number of items. For example,")
       print("1,1,1 -1,0,1 to combine (1,-1), (1,0), and (1,1) peaks.")
       sys.exit(1)
-    combl.append((tuple(h), tuple(k), I, s))
+    else:
+      combl.append((tuple(h), tuple(k), I, s))
     counter += 1
     
   return hl, kl, ql, Il, sl, combl
@@ -139,40 +146,6 @@ def nonblank_lines(f):
     line = l.rstrip()
     if line:
       yield line
-            
-            
-def read_data_6_columns(filename="ripple_082-085.dat", skip=1):
-  """
-  Read a six-column ASCII file and parse each column into a python list.
-  Lines starting with # will be ignored, i.e., # signals a comment line.
-
-  The input file must be formatted as "h k qr qz q |F|", where 
-  h, k: ripple main and side peak index
-  qr, qz, q: in-plane, out-of-plane, and total scattering vector
-  |F|: absolute value of form factor, usually |F(h=1,k=0)|=100 is the 
-     normalization, but this is not necessary for the program to work.
-  For example, an input file should look like:
-  
-  h  k      qr      qz      q   |F|
-  1 -1  0.0434  0.1043 0.1129  83.4 
-  1  0  0.0000  0.1106 0.1106 100.0
-  2  0  0.0000  0.2190 0.2190  36.1
-  2  1  0.0429  0.2253 0.2294  51.6
-  
-  filename: input file name
-  skip: the number of header lines that will be skipped
-  """
-  fileobj = open(filename, 'r')
-  # ignore the first skip lines
-  for i in range(skip):
-    fileobj.readline()
-  h = []; k = []; qr =[]; qz =[]; q = []; F = []
-  lines = fileobj.readlines()
-  for line in lines:
-    hval, kval, rval, zval, qval, Fval = line.split()
-    h.append(hval); k.append(kval); qr.append(rval); qz.append(zval)
-    q.append(qval); F.append(Fval) 
-  return h, k, qr, qz, q, F  
   
 
 ###############################################################################
@@ -194,17 +167,17 @@ class BaseRipple(object):
         ((list of h index), (list of k index), F), where lists of index tells
         which peaks are combined to give the value of F. 
   """
-  def __init__(self, h, k, I=None, sigma=None, q=None, D=58, lambda_r=140, 
+  def __init__(self, h, k, q=None, I=None, sigma=None, D=58, lambda_r=140, 
                gamma=1.7):
     self.h = np.array(h, int)
     self.k = np.array(k, int)
     self.q = np.array(q, float)
     self.I = np.array(I, float)
+    self.sigma = np.array(sigma, float)
     self.latt_par = Parameters()
     self.latt_par.add('D', value=D, vary=True)
     self.latt_par.add('lambda_r', value=lambda_r, vary=True)
     self.latt_par.add('gamma', value=gamma, vary=True)
-    self.sigma = sigma
     self.mask = np.ones(self.h.size, dtype=bool)
     self.comb_peaks = CombinedPeaks()
 
@@ -243,7 +216,7 @@ class BaseRipple(object):
     """
     model method needs to be defined in the subclasses
     """
-    self.phase = np.sign(self._model())
+    self.phase = np.sign(self._model_F())
     
   def plot_2D_edp(self, xmin=-100, xmax=100, zmin=-100, zmax=100, N=201):
     """
@@ -288,15 +261,16 @@ class BaseRipple(object):
     plt.figure()
     plt.plot(X, Y)
     
-  def report_model_F(self):
+  def report_model_I(self):
     """
-    Show the model form factor along with the experimental |F|. Need a model
+    Show the model observed intensity along with the experimental I. Need a model
     method to call, which should be implemented in a derived class.
     """
-    print(" h  k      qx     qz      q   model       F")
+    self._set_qxqz(self.h, self.k)
+    print(" h  k      qx     qz      q      model          I")
     for a, b, c, d, e, f, g in zip(self.h, self.k, self.qx, self.qz, self.q, 
-                                   self._model(), self.F):
-      print("{0: 1d} {1: 1d}  {2: .3f} {3: .3f} {4: .3f} {5: 7.2f} {6: 7.2f}"
+                                   self._model_observed_I(), self.I):
+      print("{0: 1d} {1: 1d}  {2: .3f} {3: .3f} {4: .3f} {5: 10.3f} {6: 10.3f}"
             .format(a, b, c, d, e, f, g))
   
   def report_calc_lattice(self):
@@ -321,7 +295,6 @@ class BaseRipple(object):
     Start a non-linear least squared fit for lattice parameters.
     """
     self.lattice = minimize(self._residual_lattice, self.latt_par)    
-    self.set_qxqz()
 
   def _residual_lattice(self, params):
     """
@@ -383,16 +356,18 @@ class BaseRipple(object):
     """
     Return the individual residuals.  
     """
-    # Calculate the model for individual peaks
-    self._set_qxqz(self.h, self.k)
-    model_indiv = np.absolute(self._model())**2
+    h, k, I, s = self.comb_peaks.get_all_hkIsigma()
+    self._set_qxqz(np.append(self.h, h), np.append(self.k, k))
+    
+    model = self._model_observed_I()
+    
+    #Split the model to indivial and combined peaks
+    model_indiv = model[0:len(self.h)]
+    model_comb = model[len(self.h):]
+    
     # Apply the mask
     model_indiv = model_indiv[self.mask]
     
-    # Calculate the model for combined peaks
-    h, k, I, s = self.comb_peaks.get_all_hkIsigma()
-    self._set_qxqz(h, k)
-    model_comb = np.absolute(self._model())**2
     # Combine peaks according to prescription given by CombinedPeaks object
     model_comb = self.comb_peaks.shrink(model_comb)
     
@@ -411,15 +386,29 @@ class BaseRipple(object):
     #data = self.F
     #model = np.absolute(self._model())
     #return (data - model) 
-      
-  def _model(self):
+  
+  def _model_observed_I(self):
+    """
+    Return the geometrically corrected observed intensity predicted by the 
+    model form factor
+    """
+    global wavelength
+    I = self._model_F()**2
+    I[self.k==0] = I[self.k==0] / self.qz[self.k==0]
+    I[self.k!=0] = I[self.k!=0] * wavelength * self.qz[self.k!=0] / 4 / \
+                   np.pi / np.pi / np.absolute(self.qx[self.k!=0])
+    I_10 = I[(self.h==1)&(self.k==0)]
+    I = I / I_10 * 10000
+    return I
+    
+  def _model_F(self):
     """
     Return the model form factor. The return object is a numpy array with
     its length equal to the length of qx.
     """
     rho_M = self.edp_par['rho_M'].value
     model = self.F_trans() * self.F_cont()
-    # get F(h=1,k=0), which is used for normalization 
+    # get F(h=1,k=0), which is used for normalization
     # rho_M is a common scaling factor => F(h=1,k=0) = 100*rho_M
     F_10 = model[(self.h==1)&(self.k==0)]
     model = model / np.absolute(F_10) * 100 * rho_M
@@ -478,9 +467,9 @@ class BaseRipple(object):
 
 ###############################################################################
 class Sawtooth(BaseRipple):
-  def __init__(self, h, k, I, sigma, q, D=58, lambda_r=140, gamma=1.7, 
+  def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
                x0=100, A=20):
-    super(Sawtooth, self).__init__(h, k, I, sigma, q, D, lambda_r, gamma)
+    super(Sawtooth, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma)
     self.edp_par = Parameters()
     self.edp_par.add('x0', value=x0, vary=True)
     self.edp_par.add('A', value=A, vary=True)
@@ -507,10 +496,10 @@ class Sawtooth(BaseRipple):
 
 ###############################################################################
 class SDF(Sawtooth):
-  def __init__(self, h, k, I, sigma, q, D=58, lambda_r=140, gamma=1.7, 
+  def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
                x0=100, A=20, 
                rho_M=20, R_HM=2, X_h=20, psi=0.087):
-    super(SDF, self).__init__(h, k, I, sigma, q, D, lambda_r, gamma, x0, A)
+    super(SDF, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A)
     self.edp_par.add('rho_M', value=rho_M, vary=True)
     self.edp_par.add('R_HM', value=R_HM, vary=True)
     self.edp_par.add('X_h', value=X_h, vary=True)
@@ -530,10 +519,10 @@ class SDF(Sawtooth):
 
 ###############################################################################
 class MDF(SDF):
-  def __init__(self, h, k, I, sigma, q, D=58, lambda_r=140, gamma=1.7, 
+  def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
                x0=100, A=20, f1=1, f2=0, 
                rho_M=20, R_HM=2, X_h=20, psi=0.087):
-    super(MDF, self).__init__(h, k, I, sigma, q, D, lambda_r, gamma, x0, A, 
+    super(MDF, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A, 
                               rho_M, R_HM, X_h, psi)
     self.edp_par['f1'].value = f1
     self.edp_par['f2'].value = f2
@@ -644,32 +633,7 @@ def F_T(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,rhom=51.38,rhm=2.2,xh=20.1,psi=5):
   return rhom*(rhm*cos(qz*xh*cos(psi)-qx*xh*sin(psi)) - 1)
 
 
-def reproduce_WenjunSun_PNAS():
-  # read data to be fitted
-  infile = open('WackWebb2.dat', 'r')
-  h, k, q, F = read_data(infile, skip=1)
-  h = np.array(h, int)
-  k = np.array(k, int)
-  q = np.array(q, float)
-  F = np.array(F, float)
 
-  # The following parameters reproduce one of Wenjun Sun's results
-  # See RIPPLE~1/PROG_DIR/REFINE~1/REFINE.CMP
-  mdf = MDF(h, k, F, q, qx=None, qz=None, D=57.94, lambda_r=141.7, gamma=1.7174, 
-            x0=118, A=21.8, f1=1, f2=-9, rho_M=1, R_HM=2.1, 
-            X_h=20.4, psi=0.1571)
-  mdf.edp_par['f1'].vary = False
-#  mdf.fit_lattice()
-  mdf.fit_edp()
-  mdf.report_edp()
-  
-  # The following parameters approximately reproduce one of Sun's results
-  # for f1 and f2 free
-  mdf = MDF(h, k, F, q, qx=None, qz=None, D=57.94, lambda_r=141.7, gamma=1.7174, 
-            x0=103, A=20.0, f1=0.7, f2=-2, rho_M=1, R_HM=2.2, 
-            X_h=20.4, psi=0.1571) 
-  mdf.fit_edp()
-  mdf.report_edp() 
 
 
 if __name__ == "__main__":
@@ -679,28 +643,27 @@ if __name__ == "__main__":
 #  infilename = 'ripple_082-085.dat'
 #  infilename = 'WackWebb2.dat'
 #  infilename = 'ripple_082-085_mod1.dat'
-  infilename = 'ripple_082-085.dat'
-  h, k, q, F, comb = read_data_4_columns(infilename)
-  h = np.array(h, int)
-  k = np.array(k, int)
-  q = np.array(q, float)
-  F = np.array(F, float) 
+  wavelength = 1.175
+  infilename = 'intensity/ripple_082-085.dat'
+  h, k, q, I, sigma, combined = read_data_5_columns(infilename)
+
   
   # Work on SDF
-#  sdf = SDF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=141.7, gamma=1.7174, 
-#            x0=103, A=18.6, rho_M=1, R_HM=2.2, X_h=20.1, psi=0.0872) 
+  sdf = SDF(h, k, q, I, sigma, D=58, lambda_r=141.7, gamma=1.7174, 
+            x0=103, A=18.6, rho_M=1, R_HM=2.2, X_h=20.1, psi=0.0872) 
+  sdf.set_combined_peaks(combined)
 #  sdf.set_mask(h=1, k=2, value=False)
 #  sdf.set_mask(h=3, k=5, value=False)
 #  sdf.set_mask(h=3, k=6, value=False)
 #  sdf.set_mask(h=4, k=0, value=False)
-#  sdf.fit_lattice()
+  sdf.fit_lattice()
 #  sdf.fit_edp()
 #  sdf.report_edp()
   
   # Work on MDF
-  mdf = MDF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=141.7, gamma=1.7174, 
-            x0=103, A=18.6, f1=1, f2=0, rho_M=1, R_HM=2.2, 
-            X_h=20.1, psi=0.0872) 
-  mdf.fit_lattice()
-  mdf.fit_edp()
-  mdf.report_edp()  
+#  mdf = MDF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=141.7, gamma=1.7174, 
+#            x0=103, A=18.6, f1=1, f2=0, rho_M=1, R_HM=2.2, 
+#            X_h=20.1, psi=0.0872) 
+#  mdf.fit_lattice()
+#  mdf.fit_edp()
+#  mdf.report_edp()  
