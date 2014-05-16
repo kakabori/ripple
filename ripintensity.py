@@ -569,35 +569,36 @@ class MDF(SDF):
 class S2G(Sawtooth):
   def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
                x0=100, A=20.27, 
-               R_H1M=2.21, Z_H1=20.00, sigma_H1=3.33,
-               R_H2M=2.22, Z_H2=22.22, sigma_H2=3.33, 
-               sigma_M=3, psi=0.087, DeltaR=0.1, rho_M=1):
+               rho_H1=2.21, Z_H1=20.00, sigma_H1=3.33,
+               rho_H2=2.22, Z_H2=22.22, sigma_H2=3.33,
+               rho_M=1, sigma_M=3, psi=0.087, DeltaRho=0.1):
     super(S2G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A)
-    self.edp_par.add('R_H1M', value=R_H1M, vary=True, min=0)
+    self.edp_par.add('rho_H1', value=rho_H1, vary=True, min=0)
     self.edp_par.add('Z_H1', value=Z_H1, vary=True, min=0, max=60)
     self.edp_par.add('sigma_H1', value=sigma_H1, vary=True, min=0, max=10)
-    self.edp_par.add('R_H2M', value=R_H2M, vary=True, min=0)
+    self.edp_par.add('rho_H2', value=rho_H2, vary=True, min=0)
     self.edp_par.add('Z_H2', value=Z_H2, vary=True, min=0, max=60)
-    self.edp_par.add('sigma_H2', value=sigma_H2, vary=True, min=0, max=10)    
+    self.edp_par.add('sigma_H2', value=sigma_H2, vary=True, min=0, max=10)
+    self.edp_par.add('rho_M', value=rho_M, vary=True, min=0)    
     self.edp_par.add('sigma_M', value=sigma_M, vary=True, min=0, max=10)   
     self.edp_par.add('psi', value=psi, vary=True)
-    self.edp_par.add('DeltaR', value=DeltaR, vary=True, min=0)    
-    self.edp_par.add('rho_M', value=rho_M, vary=True, min=0)
+    self.edp_par.add('DeltaRho', value=DeltaRho, vary=True, min=0)    
   
   def F_trans(self):
     """
     Transbilayer part of the ripple form factor
     """
-    R_H1M = self.edp_par['R_H1M'].value
+    rho_H1 = self.edp_par['rho_H1'].value
     Z_H1 = self.edp_par['Z_H1'].value
     sigma_H1 = self.edp_par['sigma_H1'].value
-    R_H2M = self.edp_par['R_H2M'].value
+    rho_H2 = self.edp_par['rho_H2'].value
     Z_H2 = self.edp_par['Z_H2'].value
     sigma_H2 = self.edp_par['sigma_H2'].value
+    rho_M = self.edp_par['rho_M'].value
     sigma_M = self.edp_par['sigma_M'].value
     psi = self.edp_par['psi'].value  
-    DeltaR = self.edp_par['DeltaR'].value
-    rho_M = self.edp_par['rho_M'].value
+    DeltaRho = self.edp_par['DeltaRho'].value
+    
     
     # Make sure Z_H2 > Z_H1. If Z_H2 < Z_H1, swap them
     if Z_H1 > Z_H2:
@@ -606,41 +607,106 @@ class S2G(Sawtooth):
       R_H1M, R_H2M = R_H2M, R_H1M
     
     # Calculate the intermediate variables
-    alpha = self.qz - self.qx*tan(psi)
+    alpha = self.qz*cos(psi) - self.qx*sin(psi)
     Z_CH2 = Z_H1 - sigma_H1
     Z_W = Z_H2 + sigma_H2
     DeltaZ_H = Z_W - Z_CH2
     
     # Calculate the Gaussian part   
-    FG = -sigma_M*cos(psi) * exp(-0.5*alpha**2*sigma_M**2*cos(psi)**2)
-    FG += 2*R_H1M*sigma_H1*cos(psi) * cos(alpha*Z_H1*cos(psi)) * \
-          exp(-0.5*alpha**2*sigma_H1**2*cos(psi)**2)
-    FG += 2*R_H2M*sigma_H2*cos(psi) * cos(alpha*Z_H2*cos(psi)) * \
-          exp(-0.5*alpha**2*sigma_H2**2*cos(psi)**2)
+    FG = -rho_M*sigma_M * exp(-0.5*(alpha*sigma_M)**2)
+    FG += 2*rho_H1*sigma_H1 * cos(alpha*Z_H1) * exp(-0.5*(alpha*sigma_H1)**2)
+    FG += 2*rho_H2*sigma_H2 * cos(alpha*Z_H2) * exp(-0.5*(alpha*sigma_H2)**2)
     FG *= np.sqrt(2*pi)
     
     # Calculate the strip part
-    FS = -2*DeltaR * sin(alpha*Z_CH2*cos(psi)) / alpha
+    FS = -2 * sin(alpha*Z_CH2) / alpha
     
     # Calculate the bridging part
-    FB = DeltaR*DeltaZ_H*cos(psi) / (2*pi+2*alpha*DeltaZ_H*cos(psi))
-    FB += DeltaR*DeltaZ_H*cos(psi) / (-2*pi+2*alpha*DeltaZ_H*cos(psi))
-    FB *= sin(alpha*Z_W*cos(psi)) + sin(alpha*Z_CH2*cos(psi))
-    FB -= DeltaR * (sin(alpha*Z_W*cos(psi))-sin(alpha*Z_CH2*cos(psi))) / alpha
+    FB = 1 / (alpha + pi/DeltaZ_H)
+    FB += 1 / (alpha - pi/DeltaZ_H)
+    FB *= sin(alpha*Z_W) + sin(alpha*Z_CH2)
+    FB *= 0.5
+    FB -= (sin(alpha*Z_W)-sin(alpha*Z_CH2)) / alpha
                
-    return rho_M * (FG + FS + FB)
+    return DeltaRho * (FG + FS + FB)
     
 
 ###############################################################################
 class M2G(S2G):
   def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
                x0=100, A=20, f1=1, f2=0, 
-               R_H1M=2.21, Z_H1=20.24, sigma_H1=3.33,
-               R_H2M=2.22, Z_H2=20.22, sigma_H2=3.33, 
-               sigma_M=3, psi=0.087, DeltaR=0.1, rho_M=1):
+               rho_H1=2.21, Z_H1=20.24, sigma_H1=3.33,
+               rho_H2=2.22, Z_H2=20.22, sigma_H2=3.33, 
+               rho_M=1, sigma_M=3, psi=0.087, DeltaRho=0.1):
     super(M2G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A, 
-                              R_H1M, Z_H1, sigma_H1, R_H2M, Z_H2, sigma_H2, 
-                              sigma_M, psi, DeltaR, rho_M)
+                              rho_H1, Z_H1, sigma_H1, rho_H2, Z_H2, sigma_H2, 
+                              rho_M, sigma_M, psi, DeltaRho)
+    self.edp_par['f1'].value = f1
+    self.edp_par['f2'].value = f2
+    self.edp_par['f1'].vary = True
+    self.edp_par['f2'].vary = True
+
+
+###############################################################################
+class S1G(Sawtooth):
+  def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
+               x0=100, A=20.27, 
+               rho_H1=2.21, Z_H1=20.00, sigma_H1=3.33,
+               rho_M=1, sigma_M=3, psi=0.087, DeltaRho=0.1):
+    super(S1G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A)
+    self.edp_par.add('rho_H1', value=rho_H1, vary=True, min=0)
+    self.edp_par.add('Z_H1', value=Z_H1, vary=True, min=0, max=60)
+    self.edp_par.add('sigma_H1', value=sigma_H1, vary=True, min=0, max=10)
+    self.edp_par.add('rho_M', value=rho_M, vary=True, min=0)    
+    self.edp_par.add('sigma_M', value=sigma_M, vary=True, min=0, max=10)   
+    self.edp_par.add('psi', value=psi, vary=True)
+    self.edp_par.add('DeltaRho', value=DeltaRho, vary=True, min=0)    
+  
+  def F_trans(self):
+    """
+    Transbilayer part of the ripple form factor
+    """
+    rho_H1 = self.edp_par['rho_H1'].value
+    Z_H1 = self.edp_par['Z_H1'].value
+    sigma_H1 = self.edp_par['sigma_H1'].value
+    rho_M = self.edp_par['rho_M'].value
+    sigma_M = self.edp_par['sigma_M'].value
+    psi = self.edp_par['psi'].value  
+    DeltaRho = self.edp_par['DeltaRho'].value
+       
+    # Calculate the intermediate variables
+    alpha = self.qz*cos(psi) - self.qx*sin(psi)
+    Z_CH2 = Z_H1 - sigma_H1
+    Z_W = Z_H1 + sigma_H1
+    DeltaZ_H = Z_W - Z_CH2
+    
+    # Calculate the Gaussian part   
+    FG = -rho_M*sigma_M * exp(-0.5*(alpha*sigma_M)**2)
+    FG += 2*rho_H1*sigma_H1 * cos(alpha*Z_H1) * exp(-0.5*(alpha*sigma_H1)**2)
+    FG *= np.sqrt(2*pi)
+    
+    # Calculate the strip part
+    FS = -2 * sin(alpha*Z_CH2) / alpha
+    
+    # Calculate the bridging part
+    FB = 1 / (alpha + pi/DeltaZ_H)
+    FB += 1 / (alpha - pi/DeltaZ_H)
+    FB *= sin(alpha*Z_W) + sin(alpha*Z_CH2)
+    FB *= 0.5
+    FB -= (sin(alpha*Z_W)-sin(alpha*Z_CH2)) / alpha
+               
+    return DeltaRho * (FG + FS + FB)
+
+
+###############################################################################
+class M1G(S1G):
+  def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
+               x0=100, A=20, f1=1, f2=0, 
+               rho_H1=2.21, Z_H1=20.24, sigma_H1=3.33,
+               rho_M=1, sigma_M=3, psi=0.087, DeltaRho=0.1):
+    super(M1G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A, 
+                              rho_H1, Z_H1, sigma_H1, 
+                              rho_M, sigma_M, psi, DeltaRho)
     self.edp_par['f1'].value = f1
     self.edp_par['f2'].value = f2
     self.edp_par['f1'].vary = True
@@ -702,12 +768,31 @@ if __name__ == "__main__":
 #  mdf.fit_edp()
 #  mdf.report_edp()  
 
-  # Work on S2G
-  s2g = S2G(h, k, q, I, sigma, D=58, lambda_r=144, gamma=1.7,
-            x0=100, A=20, R_H1M=1, Z_H1=17.24, sigma_H1=3.33,
-            R_H2M=1, Z_H2=22.22, sigma_H2=3.33, 
-            sigma_M=4, psi=0.1, DeltaR=1, rho_M=1)
+  # Work on S1G
+  s1g = S1G(h, k, q, I, sigma, D=58, lambda_r=144, gamma=1.7,
+            x0=100, A=20, rho_H1=10.77, Z_H1=20.86, sigma_H1=3.43,
+            rho_M=9.23, sigma_M=1.67, psi=0.1, DeltaRho=1)
   s2g.set_combined_peaks(combined)
   s2g.fit_lattice()
+  s2g.edp_par['rho_H1'].vary = False
+  s2g.edp_par['sigma_H1'].vary = False
+  s2g.edp_par['rho_M'].vary = False
+  s2g.edp_par['sigma_M'].vary = False 
+  s2g.fit_edp()
+  s2g.report_edp()            
+            
+  # Work on S2G
+  s2g = S2G(h, k, q, I, sigma, D=58, lambda_r=144, gamma=1.7,
+            x0=100, A=20, rho_H1=9.91, Z_H1=19.45, sigma_H1=2.94,
+            rho_H2=7.27, Z_H2=23.47, sigma_H2=1.47, 
+            rho_M=10.91, sigma_M=1.83, psi=0.1, DeltaRho=1)
+  s2g.set_combined_peaks(combined)
+  s2g.fit_lattice()
+  s2g.edp_par['rho_H1'].vary = False
+  s2g.edp_par['sigma_H1'].vary = False
+  s2g.edp_par['rho_H2'].vary = False
+  s2g.edp_par['sigma_H2'].vary = False 
+  s2g.edp_par['rho_M'].vary = False
+  s2g.edp_par['sigma_M'].vary = False 
   s2g.fit_edp()
   s2g.report_edp()
