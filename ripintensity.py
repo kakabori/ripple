@@ -298,11 +298,14 @@ class BaseRipple(object):
     method to call, which should be implemented in a derived class.
     """
     self._set_qxqz(self.h, self.k)
-    print(" h  k     qx     qz      q      model          I     sigma")
-    for a, b, c, d, e, f, g, h in zip(self.h, self.k, self.qx, self.qz, self.q, 
-                                   self._model_observed_I(), self.I, self.sigma):
-      print("{0: 1d} {1: 1d} {2: .3f} {3: .3f} {4: .3f} {5: 10.3f} {6: 10.3f} {7: 9.5f}"
-            .format(a, b, c, d, e, f, g, h))
+    chi_square = ((self._model_observed_I()-self.I) / self.sigma) ** 2
+    print(" h  k     qx     qz      q      model          I     sigma     chi^2")
+    for a, b, c, d, e, f, g, h, i in \
+      zip(self.h, self.k, self.qx, self.qz, self.q, self._model_observed_I(), 
+          self.I, self.sigma, chi_square):
+      print("{0: 1d} {1: 1d} {2: .3f} {3: .3f} {4: .3f} {5: 10.3f} {6: 10.3f} \
+{7: 9.5f} {8: 9.0f}".format(a, b, c, d, e, f, g, h, i))
+    print("\nTotal chi^2 = {0: .0f}".format(np.sum(chi_square)))
   
   def report_calc_lattice(self):
     """
@@ -563,87 +566,88 @@ class MDF(SDF):
 
 
 ###############################################################################
-class SGF(Sawtooth):
-  def __init__(self, h, k, F, q=None, qx=None, qz=None, D=58, lambda_r=140, 
-               gamma=1.7, x0=100, A=20.27, R_HM=2.21, X_H=20.24, sigma_H=3, 
-               rho_M=20, sigma_M=3, psi=0.087):
-    super(SGF, self).__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, x0, A)
-    self.edp_par.add('R_HM', value=R_HM, vary=True)
-    self.edp_par.add('X_H', value=X_H, vary=True)
-    self.edp_par.add('sigma_H', value=sigma_H, vary=True)
-    self.edp_par.add('rho_M', value=rho_M, vary=True)
-    self.edp_par.add('sigma_M', value=sigma_M, vary=True)
+class S2G(Sawtooth):
+  def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
+               x0=100, A=20.27, 
+               R_H1M=2.21, Z_H1=20.00, sigma_H1=3.33,
+               R_H2M=2.22, Z_H2=22.22, sigma_H2=3.33, 
+               sigma_M=3, psi=0.087, DeltaR=0.1, rho_M=1):
+    super(S2G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A)
+    self.edp_par.add('R_H1M', value=R_H1M, vary=True, min=0)
+    self.edp_par.add('Z_H1', value=Z_H1, vary=True, min=0, max=60)
+    self.edp_par.add('sigma_H1', value=sigma_H1, vary=True, min=0, max=10)
+    self.edp_par.add('R_H2M', value=R_H2M, vary=True, min=0)
+    self.edp_par.add('Z_H2', value=Z_H2, vary=True, min=0, max=60)
+    self.edp_par.add('sigma_H2', value=sigma_H2, vary=True, min=0, max=10)    
+    self.edp_par.add('sigma_M', value=sigma_M, vary=True, min=0, max=10)   
     self.edp_par.add('psi', value=psi, vary=True)
+    self.edp_par.add('DeltaR', value=DeltaR, vary=True, min=0)    
+    self.edp_par.add('rho_M', value=rho_M, vary=True, min=0)
   
   def F_trans(self):
     """
     Transbilayer part of the ripple form factor
     """
-    R_HM = self.edp_par['R_HM'].value
-    X_H = self.edp_par['X_H'].value
-    sigma_H = self.edp_par['sigma_H'].value
-    rho_M = self.edp_par['rho_M'].value
+    R_H1M = self.edp_par['R_H1M'].value
+    Z_H1 = self.edp_par['Z_H1'].value
+    sigma_H1 = self.edp_par['sigma_H1'].value
+    R_H2M = self.edp_par['R_H2M'].value
+    Z_H2 = self.edp_par['Z_H2'].value
+    sigma_H2 = self.edp_par['sigma_H2'].value
     sigma_M = self.edp_par['sigma_M'].value
     psi = self.edp_par['psi'].value  
-    th = np.cos(psi)*(self.qz - self.qx*np.tan(psi))
-    first = R_HM*sigma_H*np.cos(X_H*th)*np.exp(-0.5*sigma_H**2*th**2)
-    second = sigma_M*np.exp(-0.5*sigma_M**2*th**2)
-    return np.sqrt(2*pi)*np.cos(psi)*rho_M*(first-second)  
-
-      
-###############################################################################
-class MGF(SGF): 
-  pass
-
-
-###############################################################################
-class S1G(Sawtooth):
-  def __init__(self, h, k, F, q=None, qx=None, qz=None, D=58, lambda_r=140, 
-               gamma=1.7, x0=100, A=20.27, R_HM=2.21, X_H=20.24, sigma_H=3, 
-               rho_M=20, sigma_M=3, psi=0.087, drho=0.1):
-    super(S1G, self).__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, x0, A)
-    self.edp_par.add('R_HM', value=R_HM, vary=True)
-    self.edp_par.add('X_H', value=X_H, vary=True)
-    self.edp_par.add('sigma_H', value=sigma_H, vary=True)
-    self.edp_par.add('rho_M', value=rho_M, vary=True)
-    self.edp_par.add('sigma_M', value=sigma_M, vary=True)
-    self.edp_par.add('psi', value=psi, vary=True)
-    self.edp_par.add('delta_rho', value=drho, vary=True)
-  
-  def F_trans(self):
-    """
-    Transbilayer part of the ripple form factor
-    """
-    R_HM = self.edp_par['R_HM'].value
-    Z_H = self.edp_par['X_H'].value
-    sigma_H = self.edp_par['sigma_H'].value
+    DeltaR = self.edp_par['DeltaR'].value
     rho_M = self.edp_par['rho_M'].value
-    sigma_M = self.edp_par['sigma_M'].value
-    psi = self.edp_par['psi'].value  
-    drho = self.edp_par['delta_rho'].value
-    th = cos(psi)*(self.qz - self.qx*tan(psi))
-    Fs = 2*drho*sin(self.qz*Z_H)*cos(self.qz*w/2)
-    Fs = Fs * (-1/self.qz + self.qz*w*w/(self.qz**2*w*w-pi*pi))
-    FG = sqrt(2*pi)*cos(psi*rho_M)
-    FG = FG * (R_HM*sigma_H*cos(Z_H*th)*exp(-0.5*sigma_H**2*th*th)
-               -sigma_M*exp(-0.5*sigma_M**2*th*th))
-    return (Fs + FG)
+    
+    # Make sure Z_H2 > Z_H1. If Z_H2 < Z_H1, swap them
+    if Z_H1 > Z_H2:
+      Z_H1, Z_H2 = Z_H2, Z_H1
+      sigma_H1, sigma_H2 = sigma_H2, sigma_H1
+      R_H1M, R_H2M = R_H2M, R_H1M
+    
+    # Calculate the intermediate variables
+    alpha = self.qz - self.qx*tan(psi)
+    Z_CH2 = Z_H1 - sigma_H1
+    Z_W = Z_H2 + sigma_H2
+    DeltaZ_H = Z_W - Z_CH2
+    
+    # Calculate the Gaussian part   
+    FG = -sigma_M*cos(psi) * exp(-0.5*alpha**2*sigma_M**2*cos(psi)**2)
+    FG += 2*R_H1M*sigma_H1*cos(psi) * cos(alpha*Z_H1*cos(psi)) * \
+          exp(-0.5*alpha**2*sigma_H1**2*cos(psi)**2)
+    FG += 2*R_H2M*sigma_H2*cos(psi) * cos(alpha*Z_H2*cos(psi)) * \
+          exp(-0.5*alpha**2*sigma_H2**2*cos(psi)**2)
+    FG *= np.sqrt(2*pi)
+    
+    # Calculate the strip part
+    FS = -2*DeltaR * sin(alpha*Z_CH2*cos(psi)) / alpha
+    
+    # Calculate the bridging part
+    FB = DeltaR*DeltaZ_H*cos(psi) / (2*pi+2*alpha*DeltaZ_H*cos(psi))
+    FB += DeltaR*DeltaZ_H*cos(psi) / (-2*pi+2*alpha*DeltaZ_H*cos(psi))
+    FB *= sin(alpha*Z_W*cos(psi)) + sin(alpha*Z_CH2*cos(psi))
+    FB -= DeltaR * (sin(alpha*Z_W*cos(psi))-sin(alpha*Z_CH2*cos(psi))) / alpha
+               
+    return rho_M * (FG + FS + FB)
     
 
 ###############################################################################
-class M1G(S1G):
-  pass
-    
+class M2G(S2G):
+  def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
+               x0=100, A=20, f1=1, f2=0, 
+               R_H1M=2.21, Z_H1=20.24, sigma_H1=3.33,
+               R_H2M=2.22, Z_H2=20.22, sigma_H2=3.33, 
+               sigma_M=3, psi=0.087, DeltaR=0.1, rho_M=1):
+    super(M2G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A, 
+                              R_H1M, Z_H1, sigma_H1, R_H2M, Z_H2, sigma_H2, 
+                              sigma_M, psi, DeltaR, rho_M)
+    self.edp_par['f1'].value = f1
+    self.edp_par['f2'].value = f2
+    self.edp_par['f1'].vary = True
+    self.edp_par['f2'].vary = True
 
 
-
-
-
-
-
-
-
-
+###############################################################################
 def F_C(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,x0=103,A=18.6):
   qx = 2*pi*k/lr
   qz = 2*pi*h/D - 2*pi*k/lr/tan(gamma)
@@ -669,8 +673,6 @@ def F_T(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,rhom=51.38,rhm=2.2,xh=20.1,psi=5):
 
 
 if __name__ == "__main__":
-#  reproduce_WenjunSun_PNAS()
-
   # read data to be fitted
 #  infilename = 'ripple_082-085.dat'
 #  infilename = 'WackWebb2.dat'
@@ -699,3 +701,13 @@ if __name__ == "__main__":
 #  mdf.fit_lattice()
 #  mdf.fit_edp()
 #  mdf.report_edp()  
+
+  # Work on S2G
+  s2g = S2G(h, k, q, I, sigma, D=58, lambda_r=144, gamma=1.7,
+            x0=100, A=20, R_H1M=1, Z_H1=17.24, sigma_H1=3.33,
+            R_H2M=1, Z_H2=22.22, sigma_H2=3.33, 
+            sigma_M=4, psi=0.1, DeltaR=1, rho_M=1)
+  s2g.set_combined_peaks(combined)
+  s2g.fit_lattice()
+  s2g.fit_edp()
+  s2g.report_edp()
