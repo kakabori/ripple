@@ -122,8 +122,7 @@ class BaseRipple(object):
   mask: mask out peaks that are set to False. Masked peak will be excluded from 
         the nonlinear fit. Only work for individual peaks, not combined ones.
   """
-  def __init__(self, h, k, F=None, q=None, qx=None, qz=None, D=58, lambda_r=140, 
-               gamma=1.7):
+  def __init__(self, h, k, q, F, D=58, lambda_r=140, gamma=1.7):
     self.h = np.array(h, int)
     self.k = np.array(k, int)
     self.q = np.array(q, float)
@@ -132,8 +131,6 @@ class BaseRipple(object):
     self.latt_par.add('D', value=D, vary=True)
     self.latt_par.add('lambda_r', value=lambda_r, vary=True)
     self.latt_par.add('gamma', value=gamma, vary=True)
-    self.qx = np.array(qx, float)
-    self.qz = np.array(qz, float)
     self.sigma = np.absolute(self.F)
     self.mask = np.ones(h.size, dtype=bool)
   
@@ -308,12 +305,12 @@ class BaseRipple(object):
     Return the model form factor. The return object is a numpy array with
     its length equal to the length of qx.
     """
-    rho_M = self.edp_par['rho_M'].value
+    common_scale = self.edp_par['common_scale'].value
     model = self.F_trans() * self.F_cont()
     # get F(h=1,k=0), which is used for normalization 
-    # rho_M is a common scaling factor => F(h=1,k=0) = 100*rho_M
+    # common_scale is a common scaling factor => F(h=1,k=0) = 100*common_scale
     F_10 = model[(self.h==1)&(self.k==0)]
-    model = model / np.absolute(F_10) * 100 * rho_M
+    model = model / np.absolute(F_10) * 100 * common_scale
     return model
     
   def export_2D_edp(self, filename="2Dedp.dat", xmin=-100, xmax=100, 
@@ -369,9 +366,8 @@ class BaseRipple(object):
 
 ###############################################################################
 class Sawtooth(BaseRipple):
-  def __init__(self, h, k, F=None, q=None, qx=None, qz=None, D=58, 
-               lambda_r=140, gamma=1.7, x0=100, A=20):
-    super(Sawtooth, self).__init__(h, k, F, q, qx, qz, D, lambda_r, gamma)
+  def __init__(self, h, k, q, F, D=58, lambda_r=140, gamma=1.7, x0=100, A=20):
+    super(Sawtooth, self).__init__(h, k, q, F, D, lambda_r, gamma)
     self.edp_par = Parameters()
     self.edp_par.add('x0', value=x0, vary=True)
     self.edp_par.add('A', value=A, vary=True)
@@ -398,11 +394,11 @@ class Sawtooth(BaseRipple):
 
 ###############################################################################
 class SDF(Sawtooth):
-  def __init__(self, h, k, F=None, q=None, qx=None, qz=None, D=58, 
-               lambda_r=140, gamma=1.7, x0=100, A=20, 
-               rho_M=20, R_HM=2, X_h=20, psi=0.087):
-    super(SDF, self).__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, x0, A)
-    self.edp_par.add('rho_M', value=rho_M, vary=True)
+  def __init__(self, h, k, q, F, D=58, lambda_r=140, gamma=1.7, 
+               x0=100, A=20, 
+               common_scale=20, R_HM=2, X_h=20, psi=0.087):
+    super(SDF, self).__init__(h, k, q, F, D, lambda_r, gamma, x0, A)
+    self.edp_par.add('common_scale', value=common_scale, vary=True)
     self.edp_par.add('R_HM', value=R_HM, vary=True)
     self.edp_par.add('X_h', value=X_h, vary=True)
     self.edp_par.add('psi', value=psi, vary=True)
@@ -411,21 +407,21 @@ class SDF(Sawtooth):
     """
     Transbilayer part of the ripple form factor
     """
-    rho_M = self.edp_par['rho_M'].value
+    common_scale = self.edp_par['common_scale'].value
     R_HM = self.edp_par['R_HM'].value
     X_h = self.edp_par['X_h'].value
     psi = self.edp_par['psi'].value  
     arg = self.qz*X_h*np.cos(psi) - self.qx*X_h*np.sin(psi)
-    return rho_M * (R_HM*np.cos(arg) - 1)
+    return common_scale * (R_HM*np.cos(arg) - 1)
   
 
 ###############################################################################
 class MDF(SDF):
-  def __init__(self, h, k, F=None, q=None, qx=None, qz=None, D=58, lambda_r=140, 
-               gamma=1.7, x0=100, A=20, f1=1, f2=0, rho_M=20, R_HM=2, X_h=20, 
-               psi=0.087):
-    super(MDF, self).__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, x0, A, 
-                     rho_M, R_HM, X_h, psi)
+  def __init__(self, h, k, q, F, D=58, lambda_r=140, gamma=1.7, 
+               x0=100, A=20, f1=1, f2=0, 
+               common_scale=20, R_HM=2, X_h=20, psi=0.087):
+    super(MDF, self).__init__(h, k, q, F, D, lambda_r, gamma, x0, A, 
+                              common_scale, R_HM, X_h, psi)
     self.edp_par['f1'].value = f1
     self.edp_par['f2'].value = f2
     self.edp_par['f1'].vary = True
@@ -433,87 +429,154 @@ class MDF(SDF):
 
 
 ###############################################################################
-class SGF(Sawtooth):
-  def __init__(self, h, k, F=None, q=None, qx=None, qz=None, D=58, lambda_r=140, 
-               gamma=1.7, x0=100, A=20.27, R_HM=2.21, X_H=20.24, sigma_H=3, 
-               rho_M=20, sigma_M=3, psi=0.087):
-    super(SGF, self).__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, x0, A)
-    self.edp_par.add('R_HM', value=R_HM, vary=True)
-    self.edp_par.add('X_H', value=X_H, vary=True)
-    self.edp_par.add('sigma_H', value=sigma_H, vary=True)
-    self.edp_par.add('rho_M', value=rho_M, vary=True)
-    self.edp_par.add('sigma_M', value=sigma_M, vary=True)
+class S2G(Sawtooth):
+  def __init__(self, h, k, q, F, D=58, lambda_r=140, gamma=1.7, 
+               x0=100, A=20.27, 
+               rho_H1=2.21, Z_H1=20.00, sigma_H1=3.33,
+               rho_H2=2.22, Z_H2=22.22, sigma_H2=3.33,
+               rho_M=1, sigma_M=3, psi=0.087, common_scale=0.1):
+    super(S2G, self).__init__(h, k, q, F, D, lambda_r, gamma, x0, A)
+    self.edp_par.add('rho_H1', value=rho_H1, vary=True, min=0)
+    self.edp_par.add('Z_H1', value=Z_H1, vary=True, min=0, max=60)
+    self.edp_par.add('sigma_H1', value=sigma_H1, vary=True, min=0, max=10)
+    self.edp_par.add('rho_H2', value=rho_H2, vary=True, min=0)
+    self.edp_par.add('Z_H2', value=Z_H2, vary=True, min=0, max=60)
+    self.edp_par.add('sigma_H2', value=sigma_H2, vary=True, min=0, max=10)
+    self.edp_par.add('rho_M', value=rho_M, vary=True, min=0)    
+    self.edp_par.add('sigma_M', value=sigma_M, vary=True, min=0, max=10)   
     self.edp_par.add('psi', value=psi, vary=True)
+    self.edp_par.add('common_scale', value=common_scale, vary=True)    
   
   def F_trans(self):
     """
     Transbilayer part of the ripple form factor
     """
-    R_HM = self.edp_par['R_HM'].value
-    X_H = self.edp_par['X_H'].value
-    sigma_H = self.edp_par['sigma_H'].value
+    rho_H1 = self.edp_par['rho_H1'].value
+    Z_H1 = self.edp_par['Z_H1'].value
+    sigma_H1 = self.edp_par['sigma_H1'].value
+    rho_H2 = self.edp_par['rho_H2'].value
+    Z_H2 = self.edp_par['Z_H2'].value
+    sigma_H2 = self.edp_par['sigma_H2'].value
     rho_M = self.edp_par['rho_M'].value
     sigma_M = self.edp_par['sigma_M'].value
     psi = self.edp_par['psi'].value  
-    th = np.cos(psi)*(self.qz - self.qx*np.tan(psi))
-    first = R_HM*sigma_H*np.cos(X_H*th)*np.exp(-0.5*sigma_H**2*th**2)
-    second = sigma_M*np.exp(-0.5*sigma_M**2*th**2)
-    return np.sqrt(2*pi)*np.cos(psi)*rho_M*(first-second)  
+    common_scale = self.edp_par['common_scale'].value
+    
+    
+    # Make sure Z_H2 > Z_H1. If Z_H2 < Z_H1, swap them
+    if Z_H1 > Z_H2:
+      Z_H1, Z_H2 = Z_H2, Z_H1
+      sigma_H1, sigma_H2 = sigma_H2, sigma_H1
+      rho_H1, rho_H2 = rho_H2, rho_H1
+    
+    # Calculate the intermediate variables
+    alpha = self.qz*cos(psi) - self.qx*sin(psi)
+    Z_CH2 = Z_H1 - sigma_H1
+    Z_W = Z_H2 + sigma_H2
+    DeltaZ_H = Z_W - Z_CH2
+    
+    # Calculate the Gaussian part   
+    FG = -rho_M*sigma_M * exp(-0.5*(alpha*sigma_M)**2)
+    FG += 2*rho_H1*sigma_H1 * cos(alpha*Z_H1) * exp(-0.5*(alpha*sigma_H1)**2)
+    FG += 2*rho_H2*sigma_H2 * cos(alpha*Z_H2) * exp(-0.5*(alpha*sigma_H2)**2)
+    FG *= np.sqrt(2*pi)
+    
+    # Calculate the strip part
+    FS = -2 * sin(alpha*Z_CH2) / alpha
+    
+    # Calculate the bridging part
+    FB = 1 / (alpha + pi/DeltaZ_H)
+    FB += 1 / (alpha - pi/DeltaZ_H)
+    FB *= sin(alpha*Z_W) + sin(alpha*Z_CH2)
+    FB *= 0.5
+    FB -= (sin(alpha*Z_W)-sin(alpha*Z_CH2)) / alpha
+               
+    return common_scale * (FG + FS + FB)
+    
 
-      
 ###############################################################################
-class MGF(SGF): 
-  pass
+class M2G(S2G):
+  def __init__(self, h, k, q, F, D=58, lambda_r=140, gamma=1.7, 
+               x0=100, A=20, f1=1, f2=0, 
+               rho_H1=2.21, Z_H1=20.24, sigma_H1=3.33,
+               rho_H2=2.22, Z_H2=20.22, sigma_H2=3.33, 
+               rho_M=1, sigma_M=3, psi=0.087, common_scale=0.1):
+    super(M2G, self).__init__(h, k, q, F, D, lambda_r, gamma, x0, A, 
+                              rho_H1, Z_H1, sigma_H1, rho_H2, Z_H2, sigma_H2, 
+                              rho_M, sigma_M, psi, common_scale)
+    self.edp_par['f1'].value = f1
+    self.edp_par['f2'].value = f2
+    self.edp_par['f1'].vary = True
+    self.edp_par['f2'].vary = True
 
 
 ###############################################################################
 class S1G(Sawtooth):
-  def __init__(self, h, k, F=None, q=None, qx=None, qz=None, D=58, lambda_r=140, 
-               gamma=1.7, x0=100, A=20.27, R_HM=2.21, X_H=20.24, sigma_H=3, 
-               rho_M=20, sigma_M=3, psi=0.087, drho=0.1):
-    super(S1G, self).__init__(h, k, F, q, qx, qz, D, lambda_r, gamma, x0, A)
-    self.edp_par.add('R_HM', value=R_HM, vary=True)
-    self.edp_par.add('X_H', value=X_H, vary=True)
-    self.edp_par.add('sigma_H', value=sigma_H, vary=True)
-    self.edp_par.add('rho_M', value=rho_M, vary=True)
-    self.edp_par.add('sigma_M', value=sigma_M, vary=True)
+  def __init__(self, h, k, q, F, D=58, lambda_r=140, gamma=1.7, 
+               x0=100, A=20.27, 
+               rho_H1=2.21, Z_H1=20.00, sigma_H1=3.33,
+               rho_M=1, sigma_M=3, psi=0.087, common_scale=0.1):
+    super(S1G, self).__init__(h, k, q, F, D, lambda_r, gamma, x0, A)
+    self.edp_par.add('rho_H1', value=rho_H1, vary=True, min=0)
+    self.edp_par.add('Z_H1', value=Z_H1, vary=True, min=0, max=60)
+    self.edp_par.add('sigma_H1', value=sigma_H1, vary=True, min=0, max=10)
+    self.edp_par.add('rho_M', value=rho_M, vary=True, min=0)    
+    self.edp_par.add('sigma_M', value=sigma_M, vary=True, min=0, max=10)   
     self.edp_par.add('psi', value=psi, vary=True)
-    self.edp_par.add('delta_rho', value=drho, vary=True)
+    self.edp_par.add('common_scale', value=common_scale, vary=True)    
   
   def F_trans(self):
     """
     Transbilayer part of the ripple form factor
     """
-    R_HM = self.edp_par['R_HM'].value
-    Z_H = self.edp_par['X_H'].value
-    sigma_H = self.edp_par['sigma_H'].value
+    rho_H1 = self.edp_par['rho_H1'].value
+    Z_H1 = self.edp_par['Z_H1'].value
+    sigma_H1 = self.edp_par['sigma_H1'].value
     rho_M = self.edp_par['rho_M'].value
     sigma_M = self.edp_par['sigma_M'].value
     psi = self.edp_par['psi'].value  
-    drho = self.edp_par['delta_rho'].value
-    th = cos(psi)*(self.qz - self.qx*tan(psi))
-    Fs = 2*drho*sin(self.qz*Z_H)*cos(self.qz*w/2)
-    Fs = Fs * (-1/self.qz + self.qz*w*w/(self.qz**2*w*w-pi*pi))
-    FG = sqrt(2*pi)*cos(psi*rho_M)
-    FG = FG * (R_HM*sigma_H*cos(Z_H*th)*exp(-0.5*sigma_H**2*th*th)
-               -sigma_M*exp(-0.5*sigma_M**2*th*th))
-    return (Fs + FG)
+    common_scale = self.edp_par['common_scale'].value
+       
+    # Calculate the intermediate variables
+    alpha = self.qz*cos(psi) - self.qx*sin(psi)
+    Z_CH2 = Z_H1 - sigma_H1
+    Z_W = Z_H1 + sigma_H1
+    DeltaZ_H = Z_W - Z_CH2
     
+    # Calculate the Gaussian part   
+    FG = -rho_M*sigma_M * exp(-0.5*(alpha*sigma_M)**2)
+    FG += 2*rho_H1*sigma_H1 * cos(alpha*Z_H1) * exp(-0.5*(alpha*sigma_H1)**2)
+    FG *= np.sqrt(2*pi)
+    
+    # Calculate the strip part
+    FS = -2 * sin(alpha*Z_CH2) / alpha
+    
+    # Calculate the bridging part
+    FB = 1 / (alpha + pi/DeltaZ_H)
+    FB += 1 / (alpha - pi/DeltaZ_H)
+    FB *= sin(alpha*Z_W) + sin(alpha*Z_CH2)
+    FB *= 0.5
+    FB -= (sin(alpha*Z_W)-sin(alpha*Z_CH2)) / alpha
+               
+    return common_scale * (FG + FS + FB)
+
 
 ###############################################################################
 class M1G(S1G):
-  pass
-    
+  def __init__(self, h, k, q, F, D=58, lambda_r=140, gamma=1.7, 
+               x0=100, A=20, f1=1, f2=0, 
+               rho_H1=2.21, Z_H1=20.24, sigma_H1=3.33,
+               rho_M=1, sigma_M=3, psi=0.087, common_scale=0.1):
+    super(M1G, self).__init__(h, k, q, F, D, lambda_r, gamma, x0, A, 
+                              rho_H1, Z_H1, sigma_H1, 
+                              rho_M, sigma_M, psi, common_scale)
+    self.edp_par['f1'].value = f1
+    self.edp_par['f2'].value = f2
+    self.edp_par['f1'].vary = True
+    self.edp_par['f2'].vary = True
 
 
-
-
-
-
-
-
-
-
+###############################################################################
 def F_C(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,x0=103,A=18.6):
   qx = 2*pi*k/lr
   qz = 2*pi*h/D - 2*pi*k/lr/tan(gamma)
@@ -568,10 +631,3 @@ if __name__ == "__main__":
 #  mdf.fit_edp()
 #  mdf.report_edp()  
 
-  
-  
-  #Fourier_decomp(qx, qz, F, phase=None, N=201, xmin=-100, xmax=100, zmin=-100, zmax=100):
-  
-  # Optimization using the Ripple class
-  #p = np.array([103, 18.6, 3, 20, 20.1, 0.0873])
-  #obj.fit_SDF(par=p)

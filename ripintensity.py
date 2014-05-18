@@ -7,7 +7,9 @@ import matplotlib.pyplot as plt
 from lmfit import minimize, Parameters
 import lmfit
 
-
+# A module-level global variable
+wavelength = 1.175
+  
 class Peak(object):
   def __init__(self, hs, ks, I, sigma=1):
     if len(hs) == len(ks):
@@ -604,7 +606,7 @@ class S2G(Sawtooth):
     if Z_H1 > Z_H2:
       Z_H1, Z_H2 = Z_H2, Z_H1
       sigma_H1, sigma_H2 = sigma_H2, sigma_H1
-      R_H1M, R_H2M = R_H2M, R_H1M
+      rho_H1, rho_H2 = rho_H2, rho_H1
     
     # Calculate the intermediate variables
     alpha = self.qz*cos(psi) - self.qx*sin(psi)
@@ -660,7 +662,7 @@ class S1G(Sawtooth):
     self.edp_par.add('rho_M', value=rho_M, vary=True, min=0)    
     self.edp_par.add('sigma_M', value=sigma_M, vary=True, min=0, max=10)   
     self.edp_par.add('psi', value=psi, vary=True)
-    self.edp_par.add('DeltaRho', value=DeltaRho, vary=True, min=0)    
+    self.edp_par.add('DeltaRho', value=DeltaRho, vary=True)    
   
   def F_trans(self):
     """
@@ -743,7 +745,6 @@ if __name__ == "__main__":
 #  infilename = 'ripple_082-085.dat'
 #  infilename = 'WackWebb2.dat'
 #  infilename = 'ripple_082-085_mod1.dat'
-  wavelength = 1.175
   infilename = 'intensity/ripple_082-085.dat'
   h, k, q, I, sigma, combined = read_data_5_columns(infilename)
 
