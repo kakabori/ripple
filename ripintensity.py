@@ -430,13 +430,13 @@ class BaseRipple(object):
     model form factor
     """
     global wavelength
-    rho_M = self.edp_par['rho_M'].value
+    common_scale = self.edp_par['common_scale'].value
     I = self._model_F()**2
     I[self.k==0] = I[self.k==0] / self.qz[self.k==0]
     I[self.k!=0] = I[self.k!=0] * wavelength * self.qz[self.k!=0] / 4 / \
                    np.pi / np.pi / np.absolute(self.qx[self.k!=0])
     I_10 = I[(self.h==1)&(self.k==0)]
-    I = I / I_10 * 10000 * rho_M
+    I = I / I_10 * 10000 * common_scale
     return I
     
   def _model_F(self):
@@ -445,10 +445,6 @@ class BaseRipple(object):
     its length equal to the length of qx.
     """ 
     model = self.F_trans() * self.F_cont()
-    # get F(h=1,k=0), which is used for normalization
-    # rho_M is a common scaling factor => F(h=1,k=0) = 100*rho_M
-    F_10 = model[(self.h==1)&(self.k==0)]
-    model = model / np.absolute(F_10)
     return model
     
   def export_2D_edp(self, filename="2Dedp.dat", xmin=-100, xmax=100, 
@@ -535,9 +531,9 @@ class Sawtooth(BaseRipple):
 class SDF(Sawtooth):
   def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
                x0=100, A=20, 
-               rho_M=20, R_HM=2, X_h=20, psi=0.087):
+               common_scale=20, R_HM=2, X_h=20, psi=0.087):
     super(SDF, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A)
-    self.edp_par.add('rho_M', value=rho_M, vary=True)
+    self.edp_par.add('common_scale', value=common_scale, vary=True)
     self.edp_par.add('R_HM', value=R_HM, vary=True)
     self.edp_par.add('X_h', value=X_h, vary=True)
     self.edp_par.add('psi', value=psi, vary=True)
@@ -546,21 +542,21 @@ class SDF(Sawtooth):
     """
     Transbilayer part of the ripple form factor
     """
-    rho_M = self.edp_par['rho_M'].value
+    common_scale = self.edp_par['common_scale'].value
     R_HM = self.edp_par['R_HM'].value
     X_h = self.edp_par['X_h'].value
     psi = self.edp_par['psi'].value  
     arg = self.qz*X_h*np.cos(psi) - self.qx*X_h*np.sin(psi)
-    return rho_M * (R_HM*np.cos(arg) - 1)
+    return common_scale * (R_HM*np.cos(arg) - 1)
   
 
 ###############################################################################
 class MDF(SDF):
   def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
                x0=100, A=20, f1=1, f2=0, 
-               rho_M=20, R_HM=2, X_h=20, psi=0.087):
+               common_scale=20, R_HM=2, X_h=20, psi=0.087):
     super(MDF, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A, 
-                              rho_M, R_HM, X_h, psi)
+                              common_scale, R_HM, X_h, psi)
     self.edp_par['f1'].value = f1
     self.edp_par['f2'].value = f2
     self.edp_par['f1'].vary = True
@@ -573,7 +569,7 @@ class S2G(Sawtooth):
                x0=100, A=20.27, 
                rho_H1=2.21, Z_H1=20.00, sigma_H1=3.33,
                rho_H2=2.22, Z_H2=22.22, sigma_H2=3.33,
-               rho_M=1, sigma_M=3, psi=0.087, DeltaRho=0.1):
+               rho_M=1, sigma_M=3, psi=0.087, common_scale=0.1):
     super(S2G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A)
     self.edp_par.add('rho_H1', value=rho_H1, vary=True, min=0)
     self.edp_par.add('Z_H1', value=Z_H1, vary=True, min=0, max=60)
@@ -584,7 +580,7 @@ class S2G(Sawtooth):
     self.edp_par.add('rho_M', value=rho_M, vary=True, min=0)    
     self.edp_par.add('sigma_M', value=sigma_M, vary=True, min=0, max=10)   
     self.edp_par.add('psi', value=psi, vary=True)
-    self.edp_par.add('DeltaRho', value=DeltaRho, vary=True, min=0)    
+    self.edp_par.add('common_scale', value=common_scale, vary=True, min=0)    
   
   def F_trans(self):
     """
@@ -599,7 +595,7 @@ class S2G(Sawtooth):
     rho_M = self.edp_par['rho_M'].value
     sigma_M = self.edp_par['sigma_M'].value
     psi = self.edp_par['psi'].value  
-    DeltaRho = self.edp_par['DeltaRho'].value
+    common_scale = self.edp_par['common_scale'].value
     
     
     # Make sure Z_H2 > Z_H1. If Z_H2 < Z_H1, swap them
@@ -630,7 +626,7 @@ class S2G(Sawtooth):
     FB *= 0.5
     FB -= (sin(alpha*Z_W)-sin(alpha*Z_CH2)) / alpha
                
-    return DeltaRho * (FG + FS + FB)
+    return common_scale * (FG + FS + FB)
     
 
 ###############################################################################
@@ -639,10 +635,10 @@ class M2G(S2G):
                x0=100, A=20, f1=1, f2=0, 
                rho_H1=2.21, Z_H1=20.24, sigma_H1=3.33,
                rho_H2=2.22, Z_H2=20.22, sigma_H2=3.33, 
-               rho_M=1, sigma_M=3, psi=0.087, DeltaRho=0.1):
+               rho_M=1, sigma_M=3, psi=0.087, common_scale=0.1):
     super(M2G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A, 
                               rho_H1, Z_H1, sigma_H1, rho_H2, Z_H2, sigma_H2, 
-                              rho_M, sigma_M, psi, DeltaRho)
+                              rho_M, sigma_M, psi, common_scale)
     self.edp_par['f1'].value = f1
     self.edp_par['f2'].value = f2
     self.edp_par['f1'].vary = True
@@ -654,7 +650,7 @@ class S1G(Sawtooth):
   def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
                x0=100, A=20.27, 
                rho_H1=2.21, Z_H1=20.00, sigma_H1=3.33,
-               rho_M=1, sigma_M=3, psi=0.087, DeltaRho=0.1):
+               rho_M=1, sigma_M=3, psi=0.087, common_scale=0.1):
     super(S1G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A)
     self.edp_par.add('rho_H1', value=rho_H1, vary=True, min=0)
     self.edp_par.add('Z_H1', value=Z_H1, vary=True, min=0, max=60)
@@ -662,7 +658,7 @@ class S1G(Sawtooth):
     self.edp_par.add('rho_M', value=rho_M, vary=True, min=0)    
     self.edp_par.add('sigma_M', value=sigma_M, vary=True, min=0, max=10)   
     self.edp_par.add('psi', value=psi, vary=True)
-    self.edp_par.add('DeltaRho', value=DeltaRho, vary=True)    
+    self.edp_par.add('common_scale', value=common_scale, vary=True)    
   
   def F_trans(self):
     """
@@ -674,7 +670,7 @@ class S1G(Sawtooth):
     rho_M = self.edp_par['rho_M'].value
     sigma_M = self.edp_par['sigma_M'].value
     psi = self.edp_par['psi'].value  
-    DeltaRho = self.edp_par['DeltaRho'].value
+    common_scale = self.edp_par['common_scale'].value
        
     # Calculate the intermediate variables
     alpha = self.qz*cos(psi) - self.qx*sin(psi)
@@ -697,7 +693,7 @@ class S1G(Sawtooth):
     FB *= 0.5
     FB -= (sin(alpha*Z_W)-sin(alpha*Z_CH2)) / alpha
                
-    return DeltaRho * (FG + FS + FB)
+    return common_scale * (FG + FS + FB)
 
 
 ###############################################################################
@@ -705,10 +701,10 @@ class M1G(S1G):
   def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
                x0=100, A=20, f1=1, f2=0, 
                rho_H1=2.21, Z_H1=20.24, sigma_H1=3.33,
-               rho_M=1, sigma_M=3, psi=0.087, DeltaRho=0.1):
+               rho_M=1, sigma_M=3, psi=0.087, common_scale=0.1):
     super(M1G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A, 
                               rho_H1, Z_H1, sigma_H1, 
-                              rho_M, sigma_M, psi, DeltaRho)
+                              rho_M, sigma_M, psi, common_scale)
     self.edp_par['f1'].value = f1
     self.edp_par['f2'].value = f2
     self.edp_par['f1'].vary = True
@@ -745,13 +741,13 @@ if __name__ == "__main__":
 #  infilename = 'ripple_082-085.dat'
 #  infilename = 'WackWebb2.dat'
 #  infilename = 'ripple_082-085_mod1.dat'
-  infilename = 'intensity/ripple_082-085.dat'
+  infilename = 'intensity/ripple_082-085_1.dat'
   h, k, q, I, sigma, combined = read_data_5_columns(infilename)
 
-  
+###############################################################################
   # Work on SDF
   sdf = SDF(h, k, q, I, sigma, D=57.75, lambda_r=144.18, gamma=1.711, 
-            x0=102.8, A=21.1, rho_M=1.04, R_HM=2.52, X_h=19.7, psi=0.0823) 
+            x0=102.8, A=21.1, common_scale=1.04, R_HM=2.52, X_h=19.7, psi=0.0823) 
   sdf.set_combined_peaks(combined)
 #  sdf.set_mask(h=1, k=2, value=False)
 #  sdf.set_mask(h=3, k=5, value=False)
@@ -760,7 +756,8 @@ if __name__ == "__main__":
   sdf.fit_lattice()
   sdf.fit_edp()
   sdf.report_edp()
-  
+
+###############################################################################
   # Work on MDF
 #  mdf = MDF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=141.7, gamma=1.7174, 
 #            x0=103, A=18.6, f1=1, f2=0, rho_M=1, R_HM=2.2, 
@@ -769,24 +766,48 @@ if __name__ == "__main__":
 #  mdf.fit_edp()
 #  mdf.report_edp()  
 
+###############################################################################
   # Work on S1G
-  s1g = S1G(h, k, q, I, sigma, D=58, lambda_r=144, gamma=1.7,
-            x0=100, A=20, rho_H1=10.77, Z_H1=20.86, sigma_H1=3.43,
-            rho_M=9.23, sigma_M=1.67, psi=0.1, DeltaRho=1)
-  s2g.set_combined_peaks(combined)
-  s2g.fit_lattice()
-  s2g.edp_par['rho_H1'].vary = False
-  s2g.edp_par['sigma_H1'].vary = False
-  s2g.edp_par['rho_M'].vary = False
-  s2g.edp_par['sigma_M'].vary = False 
-  s2g.fit_edp()
-  s2g.report_edp()            
-            
+  s1g = S1G(h, k, q, I, sigma, D=57.94, lambda_r=141.7, gamma=1.7174,
+            x0=103, A=18.5, 
+            rho_H1=10.77, Z_H1=20.86, sigma_H1=3.43,
+            rho_M=9.23, sigma_M=1.67, psi=0.0873, common_scale=1)
+  s1g.set_combined_peaks(combined)
+  s1g.fit_lattice()
+  s1g.edp_par['rho_H1'].vary = False
+  s1g.edp_par['sigma_H1'].vary = False
+  s1g.edp_par['rho_M'].vary = False
+  s1g.edp_par['sigma_M'].vary = False 
+  s1g.fit_edp()
+  s1g.report_edp()            
+
+###############################################################################
+  # Work on M1G
+  m1g = M1G(h, k, q, I, sigma, D=57.94, lambda_r=141.7, gamma=1.7174,
+            x0=103, A=19.0, f1=0.6, f2=-1, 
+            rho_H1=10.77, Z_H1=19.3, sigma_H1=3.43,
+            rho_M=9.23, sigma_M=1.67, psi=0.157, common_scale=1)
+  m1g.fit_lattice()
+  m1g.edp_par['x0'].vary = True
+  m1g.edp_par['A'].vary = True
+  m1g.edp_par['f1'].vary = True  
+  m1g.edp_par['f2'].vary = True
+  m1g.edp_par['rho_H1'].vary = False
+  m1g.edp_par['Z_H1'].vary = True
+  m1g.edp_par['sigma_H1'].vary = False
+  m1g.edp_par['rho_M'].vary = False
+  m1g.edp_par['sigma_M'].vary = False 
+  m1g.edp_par['psi'].vary = True
+  m1g.edp_par['common_scale'].vary = True
+  m1g.fit_edp()
+  m1g.report_edp()   
+
+###############################################################################
   # Work on S2G
   s2g = S2G(h, k, q, I, sigma, D=58, lambda_r=144, gamma=1.7,
             x0=100, A=20, rho_H1=9.91, Z_H1=19.45, sigma_H1=2.94,
             rho_H2=7.27, Z_H2=23.47, sigma_H2=1.47, 
-            rho_M=10.91, sigma_M=1.83, psi=0.1, DeltaRho=1)
+            rho_M=10.91, sigma_M=1.83, psi=0.1, common_scale=1)
   s2g.set_combined_peaks(combined)
   s2g.fit_lattice()
   s2g.edp_par['rho_H1'].vary = False
@@ -795,5 +816,5 @@ if __name__ == "__main__":
   s2g.edp_par['sigma_H2'].vary = False 
   s2g.edp_par['rho_M'].vary = False
   s2g.edp_par['sigma_M'].vary = False 
-  s2g.fit_edp()
-  s2g.report_edp()
+#  s2g.fit_edp()
+#  s2g.report_edp()
