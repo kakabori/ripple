@@ -738,31 +738,31 @@ def F_T(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,rhom=51.38,rhm=2.2,xh=20.1,psi=5):
 
 if __name__ == "__main__":
   # read data to be fitted
-#  infilename = 'intensity/ripple_082-085_1.dat'
-  infilename = 'intensity/WackWebb.dat'
+  infilename = 'intensity/ripple_082-085_1.dat'
   h, k, q, I, sigma, combined = read_data_5_columns(infilename)
 
 ###############################################################################
   # Work on SDF
-  sdf = SDF(h, k, q, I, sigma, D=57.75, lambda_r=144.18, gamma=1.711, 
-            x0=102.8, A=21.1, common_scale=1.04, R_HM=2.52, X_h=19.7, psi=0.0823) 
+  sdf = SDF(h, k, q, I, sigma, D=57.8, lambda_r=145.1, gamma=1.714, 
+            x0=96.5, A=19.2, 
+            common_scale=2.5, R_HM=2.2, X_h=19.3, psi=0.16) 
   sdf.set_combined_peaks(combined)
-#  sdf.set_mask(h=1, k=2, value=False)
+  sdf.set_mask(h=1, k=0, value=False)
 #  sdf.set_mask(h=3, k=5, value=False)
 #  sdf.set_mask(h=3, k=6, value=False)
 #  sdf.set_mask(h=4, k=0, value=False)
-  sdf.fit_lattice()
+#  sdf.fit_lattice()
   sdf.fit_edp()
   sdf.report_edp()
 
 ###############################################################################
   # Work on MDF
-#  mdf = MDF(h, k, F, q, qx=None, qz=None, D=58, lambda_r=141.7, gamma=1.7174, 
-#            x0=103, A=18.6, f1=1, f2=0, rho_M=1, R_HM=2.2, 
-#            X_h=20.1, psi=0.0872) 
-#  mdf.fit_lattice()
-#  mdf.fit_edp()
-#  mdf.report_edp()  
+  mdf = MDF(h, k, q, I, sigma, D=57.8, lambda_r=145.1, gamma=1.714, 
+            x0=96.5, A=19.2, f1=0.1898, f2=13.95, 
+            common_scale=2.5, R_HM=2.2, X_h=19.3, psi=0.16) 
+  mdf.set_mask(h=1, k=0, value=False)
+  mdf.fit_edp()
+  mdf.report_edp()  
 
 ###############################################################################
   # Work on S1G
@@ -776,8 +776,8 @@ if __name__ == "__main__":
   s1g.edp_par['sigma_H1'].vary = False
   s1g.edp_par['rho_M'].vary = False
   s1g.edp_par['sigma_M'].vary = False 
-  s1g.fit_edp()
-  s1g.report_edp()            
+#  s1g.fit_edp()
+#  s1g.report_edp()            
 
 ###############################################################################
   # Work on M1G
@@ -797,8 +797,8 @@ if __name__ == "__main__":
   m1g.edp_par['sigma_M'].vary = False 
   m1g.edp_par['psi'].vary = True
   m1g.edp_par['common_scale'].vary = True
-  m1g.fit_edp()
-  m1g.report_edp()   
+#  m1g.fit_edp()
+#  m1g.report_edp()   
 
 ###############################################################################
   # Work on S2G
