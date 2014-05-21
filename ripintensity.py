@@ -738,10 +738,8 @@ def F_T(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,rhom=51.38,rhm=2.2,xh=20.1,psi=5):
 
 if __name__ == "__main__":
   # read data to be fitted
-#  infilename = 'ripple_082-085.dat'
-#  infilename = 'WackWebb2.dat'
-#  infilename = 'ripple_082-085_mod1.dat'
-  infilename = 'intensity/ripple_082-085_1.dat'
+#  infilename = 'intensity/ripple_082-085_1.dat'
+  infilename = 'intensity/WackWebb.dat'
   h, k, q, I, sigma, combined = read_data_5_columns(infilename)
 
 ###############################################################################
