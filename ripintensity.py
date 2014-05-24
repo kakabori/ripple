@@ -744,23 +744,25 @@ if __name__ == "__main__":
 ###############################################################################
   # Work on SDF
   sdf = SDF(h, k, q, I, sigma, D=57.8, lambda_r=145.1, gamma=1.714, 
-            x0=96.5, A=19.2, 
-            common_scale=2.5, R_HM=2.2, X_h=19.3, psi=0.16) 
+            x0=103, A=18.6, 
+            common_scale=1, R_HM=2.1, X_h=20.1, psi=0.08) 
   sdf.set_combined_peaks(combined)
-  sdf.set_mask(h=1, k=0, value=False)
+#  sdf.set_mask(h=1, k=0, value=False)
+#  sdf.set_mask(h=2, k=0, value=False)
 #  sdf.set_mask(h=3, k=5, value=False)
 #  sdf.set_mask(h=3, k=6, value=False)
 #  sdf.set_mask(h=4, k=0, value=False)
 #  sdf.fit_lattice()
-  sdf.fit_edp()
-  sdf.report_edp()
+#  sdf.fit_edp()
+#  sdf.report_edp()
 
 ###############################################################################
   # Work on MDF
   mdf = MDF(h, k, q, I, sigma, D=57.8, lambda_r=145.1, gamma=1.714, 
-            x0=96.5, A=19.2, f1=0.1898, f2=13.95, 
+            x0=105, A=20.2, f1=1, f2=-8, 
             common_scale=2.5, R_HM=2.2, X_h=19.3, psi=0.16) 
-  mdf.set_mask(h=1, k=0, value=False)
+#  mdf.set_mask(h=1, k=0, value=False)
+#  mdf.set_mask(h=2, k=0, value=False)
   mdf.fit_edp()
   mdf.report_edp()  
 

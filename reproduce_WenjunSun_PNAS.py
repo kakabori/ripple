@@ -18,9 +18,9 @@ sdf = rf.SDF(h, k, q, F, D=57.94, lambda_r=141.7, gamma=1.7174,
              x0=102.8, A=21.1, common_scale=1.04, R_HM=2.52, 
              X_h=19.7, psi=0.0823) 
 sdf.set_qxqz()
-#sdf.fit_edp()
-#print("Report on SDF form factor")
-#sdf.report_edp()
+sdf.fit_edp()
+print("Report on SDF form factor")
+sdf.report_edp()
 
 ###############################################################################  
 mdf = rf.MDF(h, k, q, F, D=57.94, lambda_r=141.7, gamma=1.7174, 
@@ -85,9 +85,9 @@ m1g.edp_par['sigma_H1'].vary = False
 m1g.edp_par['rho_M'].vary = False
 m1g.edp_par['sigma_M'].vary = False 
 m1g.set_qxqz()
-print("Report on M1G form factor")
-m1g.fit_edp()
-m1g.report_edp()   
+#print("Report on M1G form factor")
+#m1g.fit_edp()
+#m1g.report_edp()   
             
 ###############################################################################            
 # Work on S2G. This model was not used in WenjunSun's PNAS
@@ -116,9 +116,9 @@ h, k, q, I, sigma, combined = ri.read_data_5_columns(infilename)
 sdf2 = ri.SDF(h, k, q, I, sigma, D=57.94, lambda_r=141.7, gamma=1.7174, 
               x0=102.8, A=21.1, common_scale=1.04, 
               R_HM=2.52, X_h=19.7, psi=0.0823) 
-#sdf2.fit_edp()
-#print("Report on SDF intensity")
-#sdf2.report_edp()
+sdf2.fit_edp()
+print("Report on SDF intensity")
+sdf2.report_edp()
 
 ###############################################################################
 # Work on MDF
@@ -153,6 +153,6 @@ m1g2.edp_par['rho_H1'].vary = False
 m1g2.edp_par['sigma_H1'].vary = False
 m1g2.edp_par['rho_M'].vary = False
 m1g2.edp_par['sigma_M'].vary = False 
-m1g2.fit_edp()
-print("Report on M1G intensity")
-m1g2.report_edp()   
+#m1g2.fit_edp()
+#print("Report on M1G intensity")
+#m1g2.report_edp()   
