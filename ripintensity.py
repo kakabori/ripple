@@ -228,6 +228,9 @@ class BaseRipple(object):
     rho_xz = []
     xgrid = np.linspace(xmin, xmax, num=N)
     zgrid = np.linspace(zmin, zmax, num=N)
+    self.F = self._calc_F_from_observed_I(self.I)
+    F_10 = self.F[(self.h==1)&(self.k==0)]
+    self.F = self.F / F_10 * 100
     for x in xgrid:
       for z in zgrid:
         tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
@@ -506,7 +509,7 @@ class Sawtooth(BaseRipple):
     self.edp_par = Parameters()
     self.edp_par.add('x0', value=x0, vary=True)
     self.edp_par.add('A', value=A, vary=True)
-    self.edp_par.add('f1', value=1, vary=False)
+    self.edp_par.add('f1', value=1, vary=False, min=0)
     self.edp_par.add('f2', value=0, vary=False)
   
   def F_cont(self):
@@ -533,9 +536,9 @@ class SDF(Sawtooth):
                x0=100, A=20, 
                common_scale=20, R_HM=2, X_h=20, psi=0.087):
     super(SDF, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A)
-    self.edp_par.add('common_scale', value=common_scale, vary=True)
-    self.edp_par.add('R_HM', value=R_HM, vary=True)
-    self.edp_par.add('X_h', value=X_h, vary=True)
+    self.edp_par.add('common_scale', value=common_scale, vary=True, min=1)
+    self.edp_par.add('R_HM', value=R_HM, vary=True, min=0)
+    self.edp_par.add('X_h', value=X_h, vary=True, min=0)
     self.edp_par.add('psi', value=psi, vary=True)
   
   def F_trans(self):
@@ -738,7 +741,7 @@ def F_T(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,rhom=51.38,rhm=2.2,xh=20.1,psi=5):
 
 if __name__ == "__main__":
   # read data to be fitted
-  infilename = 'intensity/ripple_082-085_1.dat'
+  infilename = 'intensity/ripple_082-085_2.dat'
   h, k, q, I, sigma, combined = read_data_5_columns(infilename)
 
 ###############################################################################
@@ -759,12 +762,12 @@ if __name__ == "__main__":
 ###############################################################################
   # Work on MDF
   mdf = MDF(h, k, q, I, sigma, D=57.8, lambda_r=145.1, gamma=1.714, 
-            x0=105, A=20.2, f1=1, f2=-8, 
-            common_scale=2.5, R_HM=2.2, X_h=19.3, psi=0.16) 
-#  mdf.set_mask(h=1, k=0, value=False)
-#  mdf.set_mask(h=2, k=0, value=False)
-  mdf.fit_edp()
-  mdf.report_edp()  
+            x0=104, A=22, f1=1, f2=-5, 
+            common_scale=2, R_HM=2.2, X_h=20, psi=0.2) 
+  mdf.set_mask(h=1, k=0, value=False)
+  mdf.set_mask(h=2, k=0, value=False)
+#  mdf.fit_edp()
+#  mdf.report_edp()  
 
 ###############################################################################
   # Work on S1G
@@ -799,8 +802,8 @@ if __name__ == "__main__":
   m1g.edp_par['sigma_M'].vary = False 
   m1g.edp_par['psi'].vary = True
   m1g.edp_par['common_scale'].vary = True
-#  m1g.fit_edp()
-#  m1g.report_edp()   
+  m1g.fit_edp()
+  m1g.report_edp()   
 
 ###############################################################################
   # Work on S2G
