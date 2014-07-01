@@ -227,13 +227,12 @@ class BaseRipple(object):
     """
     rho_xz = []
     xgrid = np.linspace(xmin, xmax, num=N)
-    zgrid = np.linspace(zmin, zmax, num=N)
-    self.F = self._calc_F_from_observed_I(self.I)
-    F_10 = self.F[(self.h==1)&(self.k==0)]
-    self.F = self.F / F_10 * 100
+    zgrid = np.linspace(zmin, zmax, num=N)  
+    self._set_qxqz(self.h, self.k)
+    model_F = self._model_F() /100
     for x in xgrid:
       for z in zgrid:
-        tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
+        tmp = model_F * np.cos(self.qx*x+self.qz*z)
         rho_xz.append([x, z, tmp.sum(axis=0)])
     rho_xz = np.array(rho_xz, float)  
     X, Y, Z= rho_xz[:,0], rho_xz[:,1], rho_xz[:,2]
@@ -249,15 +248,17 @@ class BaseRipple(object):
     """
     Plot Fourier-reconstructed EDP along a line connecting the start and end points
     N: number of points on which ED gets calculated
-    Call plt.show() to actually display the plot.
+    Call plt.show() or plt.show(block=False) to actually display the plot.
     """
     rho = []
     x0, z0 = start
     x1, z1 = end
     xpoints = np.linspace(x0, x1, N)
     zpoints = np.linspace(z0, z1, N)
+    self._set_qxqz(self.h, self.k)
+    model_F = self._model_F() / 100
     for x, z in zip(xpoints, zpoints):
-      tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
+      tmp = model_F * np.cos(self.qx*x+self.qz*z)
       dist = np.sqrt((x-x0)**2 + (z-z0)**2)
       rho.append([dist, tmp.sum(axis=0)])
     rho = np.array(rho, float)
