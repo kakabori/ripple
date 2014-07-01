@@ -1,6 +1,6 @@
 import sys
 import numpy as np
-from numpy import pi, sin, cos, tan, exp
+from numpy import pi, sin, cos, tan, exp, sqrt
 import matplotlib as ppl
 import scipy.optimize
 import matplotlib.pyplot as plt
@@ -265,15 +265,13 @@ class BaseRipple(object):
     Y = rho[:,1]
     plt.figure()
     plt.plot(X, Y)
-  
-  def _calc_F_from_observed_I(self, I):
-    ret = self._get_corrected_intensity(I)
-    ret = np.sqrt(ret)
-    return ret
-  
-  def _get_corrected_intensity(self, I):
+   
+  def apply_Lorentz_correction(self, I):
     """
-    The name says it all. Only display individual peaks, not combined ones.
+    Apply the Lorentz correction to the input intensity and return it. 
+    Only display individual peaks, not combined ones.
+    
+    I: observed intensity, which will be Lorentz corrected
     """
     global wavelength
     ret = np.array(I)
@@ -282,19 +280,37 @@ class BaseRipple(object):
     ret[self.k!=0] = ret[self.k!=0] / wavelength / self.qz[self.k!=0] * 4 * \
                    np.pi * np.pi * np.absolute(self.qx[self.k!=0])
     return ret
+    
+  def apply_Lorentz_factor(self, I):
+    """
+    Apply the Lorentz factor to the input intensity and return it.
+    
+    I: form factor squared
+    """
+    global wavelength
+    ret = np.array(I)
+    self._set_qxqz(self.h, self.k)
+    ret[self.k==0] = ret[self.k==0] / self.qz[self.k==0]
+    ret[self.k!=0] = ret[self.k!=0] * wavelength * self.qz[self.k!=0] / 4 / \
+                   np.pi / np.pi / np.absolute(self.qx[self.k!=0])
+    return ret
   
   def report_model_F(self):
     """
-    Show the model form factor.
+    Show the model form factor along with the experimental one, which is 
+    normalized at (h=1,k=0).
     """
     self._set_qxqz(self.h, self.k)
-    model_F = self._calc_F_from_observed_I(self._model_observed_I())
-    exp_F = self._calc_F_from_observed_I(self.I)
-    F_10 = exp_F[(self.h==1)&(self.k==0)]
-    exp_F = exp_F / F_10 * 100
-    model_F = model_F / F_10 * 100
-    print(" h  k      q   model       F")
-    for a, b, c, d, e in zip(self.h, self.k, self.q, self.phase*model_F, exp_F):
+    common_scale = self.edp_par['common_scale'].value
+    model_F = self._model_F() * sqrt(common_scale)
+    exp_F = self.apply_Lorentz_correction(self.I)
+    exp_F = sqrt(exp_F)
+    # exp_F is normalized at (h=1,k=0) peak
+    expF_10 = exp_F[(self.h==1)&(self.k==0)]
+    exp_F = exp_F / expF_10 * 100
+    model_F = model_F / expF_10 * 100
+    print(" h  k      q   F_exp F_model")
+    for a, b, c, d, e in zip(self.h, self.k, self.q, exp_F, model_F):
       print("{0: 1d} {1: 1d} {2: .3f} {3: 7.2f} {4: 7.2f}".format(a, b, c, d, e))
       
   def report_model_I(self):
@@ -308,8 +324,8 @@ class BaseRipple(object):
     for a, b, c, d, e, f, g, h, i in \
       zip(self.h, self.k, self.qx, self.qz, self.q, self._model_observed_I(), 
           self.I, self.sigma, chi_square):
-      print("{0: 1d} {1: 1d} {2: .3f} {3: .3f} {4: .3f} {5: 10.3f} {6: 10.3f} \
-{7: 9.5f} {8: 9.0f}".format(a, b, c, d, e, f, g, h, i))
+      print("{0: 1d} {1: 1d} {2: .3f} {3: .3f} {4: .3f} {5: 10.0f} {6: 10.0f} \
+{7: 9.0f} {8: 9.0f}".format(a, b, c, d, e, f, g, h, i))
     print("\nTotal chi^2 = {0: .0f}".format(np.sum(chi_square)))
   
   def report_calc_lattice(self):
@@ -318,7 +334,7 @@ class BaseRipple(object):
     data
     """
     print(" h  k  q_obs q_calc")
-    q_calc = np.sqrt(self.calc_q_square())
+    q_calc = np.sqrt(self.q_square())
     for a, b, c, d in zip(self.h, self.k, self.q, q_calc):
       print("{0: 1d} {1: 1d} {2: .3f} {3: .3f}".format(a, b, c, d))
   
@@ -339,17 +355,17 @@ class BaseRipple(object):
     """
     params is a dummy variable, necessary for lmfit.minimize to work
     """
-    model = np.sqrt(self.calc_q_square())
+    model = np.sqrt(self.q_square())
     data = np.absolute(self.q)
     return (model[self.mask] -data[self.mask])
        
-  def calc_q_square(self):
+  def q_square(self):
     """ 
     Return q^2 = qx^2 + qz^2 using the values of lambda_r, D, and gamma.
     """
-    return self._q_x()**2 + self._q_z()**2    
+    return self.q_x()**2 + self.q_z()**2    
   
-  def _q_x(self):
+  def q_x(self):
     """
     Return qx value in the ripple phase LAXS.
 
@@ -357,7 +373,7 @@ class BaseRipple(object):
     lambda_r = self.latt_par['lambda_r'].value 
     return 2*np.pi*self.k/lambda_r
   
-  def _q_z(self):
+  def q_z(self):
     """
     Return qz value in the ripple phase LAXS.
     """
@@ -429,8 +445,9 @@ class BaseRipple(object):
   
   def _model_observed_I(self):
     """
-    Return Lorentz corrected intensity predicted by the 
-    model form factor
+    Apply the Lorentz factors to |model F|^2. Then return the properly 
+    scaled, calculated observed intensity. After a fit is performed, this
+    function returns the best fit.
     """
     global wavelength
     common_scale = self.edp_par['common_scale'].value
@@ -438,8 +455,9 @@ class BaseRipple(object):
     I[self.k==0] = I[self.k==0] / self.qz[self.k==0]
     I[self.k!=0] = I[self.k!=0] * wavelength * self.qz[self.k!=0] / 4 / \
                    np.pi / np.pi / np.absolute(self.qx[self.k!=0])
-    I_10 = I[(self.h==1)&(self.k==0)]
-    I = I / I_10 * 10000 * common_scale
+    #I_10 = I[(self.h==1)&(self.k==0)]
+    #I = I / I_10 * 10000 * common_scale
+    I = I * common_scale
     return I
     
   def _model_F(self):
@@ -499,7 +517,43 @@ class BaseRipple(object):
       f.write("x z dist ED\n")
       for x, z, dist, edp in zip(X, Z, DIST, EDP):
         f.write("{0: 3.1f} {1: 3.1f} {2: 3.1f} {3: }\n".format(x, z, dist, edp))
+  
+  def export_model_F(self, outfilename="best_fit_F.dat"):
+    """
+    Export the best fit model form factor as an ASCII file consisting of 
+    four columns, h, k, F_exp, F_model.
     
+    outfilename: output file name
+    """
+    self._set_qxqz(self.h, self.k)
+    common_scale = self.edp_par['common_scale'].value
+    model_F = self._model_F() * sqrt(common_scale)
+    exp_F = self.apply_Lorentz_correction(self.I)
+    exp_F = sqrt(exp_F)
+    # exp_F is normalized at (h=1,k=0) peak
+    expF_10 = exp_F[(self.h==1)&(self.k==0)]
+    exp_F = exp_F / expF_10 * 100
+    model_F = model_F / expF_10 * 100      
+    with open(outfilename, 'w') as f:
+      f.write(" h  k      q   F_exp F_model\n")
+      for a, b, c, d, e in zip(self.h, self.k, self.q, exp_F, model_F):     
+        f.write("{0: 1d} {1: 1d} {2: .3f} {3: 7.2f} {4: 7.2f}\n".format(a, b, c, d, e))
+
+  def export_model_I(self, outfilename="best_fit_I.dat"):
+    """
+    Export the observed intensity calculated from a model as an ASCII file 
+    consisting of nine columns.
+    """
+    self._set_qxqz(self.h, self.k)
+    chi_square = ((self._model_observed_I()-self.I) / self.sigma) ** 2
+    with open(outfilename, 'w') as ff:
+      ff.write(" h  k     qx     qz      q    I_exp   I_model  sigma   chi^2\n")
+      for a, b, c, d, e, f, g, h, i in \
+        zip(self.h, self.k, self.qx, self.qz, self.q, self._model_observed_I(), 
+            self.I, self.sigma, chi_square):
+        ff.write("{0: 1d} {1: 1d} {2: .3f} {3: .3f} {4: .3f} {5: 8.0f} {6: 8.0f} \
+{7: 5.0f} {8: 9.0f}\n".format(a, b, c, d, e, f, g, h, i))
+      ff.write("\nTotal chi^2 = {0: .0f}".format(np.sum(chi_square)))
 
 ###############################################################################
 class Sawtooth(BaseRipple):
@@ -736,9 +790,9 @@ def F_T(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,rhom=51.38,rhm=2.2,xh=20.1,psi=5):
   return rhom*(rhm*cos(qz*xh*cos(psi)-qx*xh*sin(psi)) - 1)
 
 
-
-
-
+###############################################################################
+############################## __main__ #######################################
+###############################################################################
 if __name__ == "__main__":
   # read data to be fitted
   infilename = 'intensity/085_ver1.dat'
@@ -746,9 +800,9 @@ if __name__ == "__main__":
 
 ###############################################################################
   # Work on SDF
-  sdf = SDF(h, k, q, I, sigma, D=57.8, lambda_r=145.1, gamma=1.714, 
+  sdf = SDF(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714, 
             x0=103, A=18.6, 
-            common_scale=510, R_HM=2.1, X_h=20.1, psi=0.08) 
+            common_scale=51, R_HM=2.1, X_h=20.1, psi=0.08) 
   sdf.set_combined_peaks(combined)
 #  sdf.set_mask(h=1, k=0, value=False)
 #  sdf.set_mask(h=2, k=0, value=False)
@@ -757,61 +811,62 @@ if __name__ == "__main__":
 #  sdf.set_mask(h=4, k=0, value=False)
 #  sdf.fit_lattice()
   sdf.fit_edp()
-  sdf.report_edp()
+#  sdf.report_edp()
 
 ###############################################################################
   # Work on MDF
-  mdf = MDF(h, k, q, I, sigma, D=57.8, lambda_r=145.1, gamma=1.714, 
+  mdf = MDF(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714, 
             x0=104, A=22, f1=1, f2=-5, 
-            common_scale=1000, R_HM=2.2, X_h=20, psi=0.2) 
-  mdf.set_mask(h=1, k=0, value=False)
-  mdf.set_mask(h=2, k=0, value=False)
-#  mdf.fit_edp()
+            common_scale=50, R_HM=2.2, X_h=20, psi=0.05) 
+#  mdf.set_mask(h=1, k=0, value=False)
+#  mdf.set_mask(h=2, k=0, value=False)
+  mdf.fit_edp()
 #  mdf.report_edp()  
 
 ###############################################################################
   # Work on S1G
-  s1g = S1G(h, k, q, I, sigma, D=57.8, lambda_r=145.1, gamma=1.714, 
+  s1g = S1G(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714, 
             x0=103, A=18.5, 
             rho_H1=10.77, Z_H1=20.86, sigma_H1=3.43,
-            rho_M=9.23, sigma_M=1.67, psi=0.0873, common_scale=1000)
-  s1g.set_combined_peaks(combined)
+            rho_M=9.23, sigma_M=1.67, psi=0.0873, common_scale=50)
+#  s1g.set_combined_peaks(combined)
 #  s1g.fit_lattice()
   s1g.edp_par['rho_H1'].vary = False
   s1g.edp_par['sigma_H1'].vary = False
   s1g.edp_par['rho_M'].vary = False
   s1g.edp_par['sigma_M'].vary = False 
-#  s1g.fit_edp()
+  s1g.fit_edp()
 #  s1g.report_edp()            
 
 ###############################################################################
   # Work on M1G
-  m1g = M1G(h, k, q, I, sigma, D=57.94, lambda_r=141.7, gamma=1.7174,
+  m1g = M1G(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714,
             x0=103, A=19.0, f1=0.6, f2=-1, 
             rho_H1=10.77, Z_H1=19.3, sigma_H1=3.43,
-            rho_M=9.23, sigma_M=1.67, psi=0.157, common_scale=1000)
+            rho_M=9.23, sigma_M=1.67, psi=0.157, common_scale=50)
 #  m1g.fit_lattice()
-  m1g.edp_par['x0'].vary = True
-  m1g.edp_par['A'].vary = True
-  m1g.edp_par['f1'].vary = True  
-  m1g.edp_par['f2'].vary = True
+#  m1g.edp_par['x0'].vary = True
+#  m1g.edp_par['A'].vary = True
+#  m1g.edp_par['f1'].vary = True  
+#  m1g.edp_par['f2'].vary = True
   m1g.edp_par['rho_H1'].vary = False
-  m1g.edp_par['Z_H1'].vary = True
+#  m1g.edp_par['Z_H1'].vary = True
   m1g.edp_par['sigma_H1'].vary = False
   m1g.edp_par['rho_M'].vary = False
   m1g.edp_par['sigma_M'].vary = False 
-  m1g.edp_par['psi'].vary = True
-  m1g.edp_par['common_scale'].vary = True
-#  m1g.fit_edp()
+#  m1g.edp_par['psi'].vary = True
+#  m1g.edp_par['common_scale'].vary = True
+  m1g.fit_edp()
 #  m1g.report_edp()   
 
 ###############################################################################
   # Work on S2G
-  s2g = S2G(h, k, q, I, sigma, D=58, lambda_r=144, gamma=1.7,
-            x0=100, A=20, rho_H1=9.91, Z_H1=19.45, sigma_H1=2.94,
+  s2g = S2G(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714,
+            x0=100, A=20, 
+            rho_H1=9.91, Z_H1=19.45, sigma_H1=2.94,
             rho_H2=7.27, Z_H2=23.47, sigma_H2=1.47, 
-            rho_M=10.91, sigma_M=1.83, psi=0.1, common_scale=1000)
-  s2g.set_combined_peaks(combined)
+            rho_M=10.91, sigma_M=1.83, psi=0.1, common_scale=50)
+#  s2g.set_combined_peaks(combined)
 #  s2g.fit_lattice()
   s2g.edp_par['rho_H1'].vary = False
   s2g.edp_par['sigma_H1'].vary = False
@@ -819,5 +874,23 @@ if __name__ == "__main__":
   s2g.edp_par['sigma_H2'].vary = False 
   s2g.edp_par['rho_M'].vary = False
   s2g.edp_par['sigma_M'].vary = False 
-#  s2g.fit_edp()
+  s2g.fit_edp()
+#  s2g.report_edp()
+
+###############################################################################
+  # Work on M2G
+  m2g = M2G(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714,
+            x0=100, A=20, f1=0.6, f2=-1, 
+            rho_H1=9.91, Z_H1=19.45, sigma_H1=2.94,
+            rho_H2=7.27, Z_H2=23.47, sigma_H2=1.47, 
+            rho_M=10.91, sigma_M=1.83, psi=0.1, common_scale=50)
+#  m2g.set_combined_peaks(combined)
+#  m2g.fit_lattice()
+  m2g.edp_par['rho_H1'].vary = False
+  m2g.edp_par['sigma_H1'].vary = False
+  m2g.edp_par['rho_H2'].vary = False
+  m2g.edp_par['sigma_H2'].vary = False 
+  m2g.edp_par['rho_M'].vary = False
+  m2g.edp_par['sigma_M'].vary = False 
+  m2g.fit_edp()
 #  s2g.report_edp()
