@@ -6,6 +6,7 @@ import scipy.optimize
 import matplotlib.pyplot as plt
 from lmfit import minimize, Parameters
 import lmfit
+from scipy import ndimage
 
 # A module-level global variable
 wavelength = 1.175
@@ -222,7 +223,7 @@ class BaseRipple(object):
     
   def plot_2D_edp(self, xmin=-100, xmax=100, zmin=-100, zmax=100, N=201):
     """
-    Plot Fourier-reconstruct a 2D map of the electron density profile. Calculate
+    Plot a 2D map of the electron density profile. Calculate
     EDP at N points along x and N points along z. The units are in Angstrom.
     """
     rho_xz = []
@@ -242,7 +243,37 @@ class BaseRipple(object):
     Y.shape = (N, N)
     Z.shape = (N, N)
     plt.figure()
-    plt.contourf(X, Y, Z)
+    #plt.contourf(X, Y, Z)
+    rotate_Z = ndimage.rotate(Z, 90)
+    imgplot = plt.imshow(rotate_Z,extent=[-100,100,-100,100],cmap='gray')
+    return imgplot
+    
+  def calc_2D_edp(self, xmin=-100, xmax=100, zmin=-100, zmax=100, N=201):
+    """
+    Fourier-reconstruct a 2D map of the electron density profile and return
+    as Z on (X,Y) grids. 
+    Calculate EDP at N points along x and N points along z. 
+    The units are in Angstrom.
+    
+    output: X, Y, Z, each being numpy array
+    """
+    rho_xz = []
+    xgrid = np.linspace(xmin, xmax, num=N)
+    zgrid = np.linspace(zmin, zmax, num=N)  
+    self._set_qxqz(self.h, self.k)
+    model_F = self._model_F() /100
+    for x in xgrid:
+      for z in zgrid:
+        tmp = model_F * np.cos(self.qx*x+self.qz*z)
+        rho_xz.append([x, z, tmp.sum(axis=0)])
+    rho_xz = np.array(rho_xz, float)  
+    X, Y, Z= rho_xz[:,0], rho_xz[:,1], rho_xz[:,2]
+    #Y = rho_xz[:,1]
+    #Z = rho_xz[:,2]
+    X.shape = (N, N)
+    Y.shape = (N, N)
+    Z.shape = (N, N)
+    return X, Y, Z
     
   def plot_1D_edp(self, start=(-10,25), end=(30,-20), N=100):
     """
@@ -796,7 +827,7 @@ def F_T(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,rhom=51.38,rhm=2.2,xh=20.1,psi=5):
 ###############################################################################
 if __name__ == "__main__":
   # read data to be fitted
-  infilename = 'intensity/085_ver1.dat'
+  infilename = 'intensity/085_h6.dat'
   h, k, q, I, sigma, combined = read_data_5_columns(infilename)
 
 ###############################################################################
