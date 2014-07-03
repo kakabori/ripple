@@ -221,7 +221,7 @@ class BaseRipple(object):
     """
     self.phase = np.sign(self._model_F())
     
-  def plot_2D_edp(self, xmin=-100, xmax=100, zmin=-100, zmax=100, N=201):
+  def plot_2D_edp(self, xmin=-150, xmax=150, zmin=-100, zmax=100, N=201):
     """
     Plot a 2D map of the electron density profile. Calculate
     EDP at N points along x and N points along z. The units are in Angstrom.
@@ -230,10 +230,11 @@ class BaseRipple(object):
     xgrid = np.linspace(xmin, xmax, num=N)
     zgrid = np.linspace(zmin, zmax, num=N)  
     self._set_qxqz(self.h, self.k)
-    model_F = self._model_F() /100
+    exp_F = self.apply_Lorentz_correction(self.I)
+    exp_F = sqrt(exp_F)
     for x in xgrid:
       for z in zgrid:
-        tmp = model_F * np.cos(self.qx*x+self.qz*z)
+        tmp = self.phase * exp_F * np.cos(self.qx*x+self.qz*z)
         rho_xz.append([x, z, tmp.sum(axis=0)])
     rho_xz = np.array(rho_xz, float)  
     X, Y, Z= rho_xz[:,0], rho_xz[:,1], rho_xz[:,2]
@@ -245,9 +246,9 @@ class BaseRipple(object):
     plt.figure()
     #plt.contourf(X, Y, Z)
     rotate_Z = ndimage.rotate(Z, 90)
-    imgplot = plt.imshow(rotate_Z,extent=[-100,100,-100,100],cmap='gray')
+    imgplot = plt.imshow(rotate_Z,extent=[-150,150,-100,100],cmap='gray')
     return imgplot
-    
+           
   def calc_2D_edp(self, xmin=-100, xmax=100, zmin=-100, zmax=100, N=201):
     """
     Fourier-reconstruct a 2D map of the electron density profile and return
@@ -261,10 +262,11 @@ class BaseRipple(object):
     xgrid = np.linspace(xmin, xmax, num=N)
     zgrid = np.linspace(zmin, zmax, num=N)  
     self._set_qxqz(self.h, self.k)
-    model_F = self._model_F() /100
+    exp_F = self.apply_Lorentz_correction(self.I)
+    exp_F = sqrt(exp_F)
     for x in xgrid:
       for z in zgrid:
-        tmp = model_F * np.cos(self.qx*x+self.qz*z)
+        tmp = self.phase * exp_F * np.cos(self.qx*x+self.qz*z)
         rho_xz.append([x, z, tmp.sum(axis=0)])
     rho_xz = np.array(rho_xz, float)  
     X, Y, Z= rho_xz[:,0], rho_xz[:,1], rho_xz[:,2]
@@ -287,9 +289,10 @@ class BaseRipple(object):
     xpoints = np.linspace(x0, x1, N)
     zpoints = np.linspace(z0, z1, N)
     self._set_qxqz(self.h, self.k)
-    model_F = self._model_F() / 100
+    exp_F = self.apply_Lorentz_correction(self.I)
+    exp_F = sqrt(exp_F)
     for x, z in zip(xpoints, zpoints):
-      tmp = model_F * np.cos(self.qx*x+self.qz*z)
+      tmp = self.phase * exp_F * np.cos(self.qx*x+self.qz*z)
       dist = np.sqrt((x-x0)**2 + (z-z0)**2)
       rho.append([dist, tmp.sum(axis=0)])
     rho = np.array(rho, float)
@@ -500,7 +503,7 @@ class BaseRipple(object):
     model = self.F_trans() * self.F_cont()
     return model
     
-  def export_2D_edp(self, filename="2Dedp.dat", xmin=-100, xmax=100, 
+  def export_2D_edp(self, filename="2Dedp.dat", xmin=-150, xmax=150, 
                     zmin=-100, zmax=100, N=201):
     """
     Export the Fourier-reconstructed 2D electron density (ED) map as an ASCII 
@@ -511,9 +514,12 @@ class BaseRipple(object):
     rho_xz = []
     xgrid = np.linspace(xmin, xmax, num=N)
     zgrid = np.linspace(zmin, zmax, num=N)
+    self._set_qxqz(self.h, self.k)
+    exp_F = self.apply_Lorentz_correction(self.I)
+    exp_F = sqrt(exp_F)
     for x in xgrid:
       for z in zgrid:
-        tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
+        tmp = self.phase * exp_F * np.cos(self.qx*x+self.qz*z)
         rho_xz.append([x, z, tmp.sum(axis=0)])
     rho_xz = np.array(rho_xz, float)  
     X, Y, Z= rho_xz[:,0], rho_xz[:,1], rho_xz[:,2]
@@ -539,8 +545,11 @@ class BaseRipple(object):
     x1, z1 = end
     xpoints = np.linspace(x0, x1, N)
     zpoints = np.linspace(z0, z1, N)
+    self._set_qxqz(self.h, self.k)
+    exp_F = self.apply_Lorentz_correction(self.I)
+    exp_F = sqrt(exp_F)
     for x, z in zip(xpoints, zpoints):
-      tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
+      tmp = self.phase * exp_F * np.cos(self.qx*x+self.qz*z)
       dist = np.sqrt((x-x0)**2 + (z-z0)**2)
       rho.append([x, z, dist, tmp.sum(axis=0)])
     rho = np.array(rho, float)
