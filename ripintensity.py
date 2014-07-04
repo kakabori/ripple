@@ -588,7 +588,7 @@ class BaseRipple(object):
     self._set_qxqz(self.h, self.k)
     chi_square = ((self._model_observed_I()-self.I) / self.sigma) ** 2
     with open(outfilename, 'w') as ff:
-      ff.write(" h  k     qx     qz      q    I_exp   I_model  sigma   chi^2\n")
+      ff.write(" h  k     qx     qz      q    I_model   I_exp  sigma   chi^2\n")
       for a, b, c, d, e, f, g, h, i in \
         zip(self.h, self.k, self.qx, self.qz, self.q, self._model_observed_I(), 
             self.I, self.sigma, chi_square):
