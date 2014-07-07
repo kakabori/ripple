@@ -5,7 +5,7 @@ from ripintensity import *
 ###############################################################################
 if __name__ == "__main__":
   # read data to be fitted
-  infilename = 'intensity/085_h9.dat'
+  infilename = 'intensity/085_h9_ver2.dat'
   h, k, q, I, sigma, combined = read_data_5_columns(infilename)
 
 ###############################################################################
@@ -14,12 +14,12 @@ if __name__ == "__main__":
             x0=118, A=25.8, f1=0.9, f2=-11, 
             rho_H1=10.77, Z_H1=19.8, sigma_H1=3.43,
             rho_M_major=9.23, sigma_M=1.67, psi=0.27, common_scale=1.3,
-            rho_M_minor=9.23)
+            rho_M_minor=-9.23)
 #  m1g.fit_lattice()
   m1g.edp_par['rho_H1'].vary = False
   m1g.edp_par['sigma_H1'].vary = False
   m1g.edp_par['rho_M_major'].vary = False
-  m1g.edp_par['rho_M_minor'].vary = False
+  m1g.edp_par['rho_M_minor'].vary = True
   m1g.edp_par['sigma_M'].vary = False 
   m1g.fit_edp()
   m1g.export_model_F("h9_F_m1g.dat")

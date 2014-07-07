@@ -176,6 +176,7 @@ class BaseRipple(object):
     self.k = np.array(k, int)
     self.q = np.array(q, float)
     self.I = np.array(I, float)
+    self.F = sqrt(np.array(I, float))
     self.sigma = np.array(sigma, float)
     self.latt_par = Parameters()
     self.latt_par.add('D', value=D, vary=True)
@@ -230,11 +231,9 @@ class BaseRipple(object):
     xgrid = np.linspace(xmin, xmax, num=N)
     zgrid = np.linspace(zmin, zmax, num=N)  
     self._set_qxqz(self.h, self.k)
-    exp_F = self.apply_Lorentz_correction(self.I)
-    exp_F = sqrt(exp_F)
     for x in xgrid:
       for z in zgrid:
-        tmp = self.phase * exp_F * np.cos(self.qx*x+self.qz*z)
+        tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
         rho_xz.append([x, z, tmp.sum(axis=0)])
     rho_xz = np.array(rho_xz, float)  
     X, Y, Z= rho_xz[:,0], rho_xz[:,1], rho_xz[:,2]
@@ -262,11 +261,9 @@ class BaseRipple(object):
     xgrid = np.linspace(xmin, xmax, num=N)
     zgrid = np.linspace(zmin, zmax, num=N)  
     self._set_qxqz(self.h, self.k)
-    exp_F = self.apply_Lorentz_correction(self.I)
-    exp_F = sqrt(exp_F)
     for x in xgrid:
       for z in zgrid:
-        tmp = self.phase * exp_F * np.cos(self.qx*x+self.qz*z)
+        tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
         rho_xz.append([x, z, tmp.sum(axis=0)])
     rho_xz = np.array(rho_xz, float)  
     X, Y, Z= rho_xz[:,0], rho_xz[:,1], rho_xz[:,2]
@@ -289,10 +286,8 @@ class BaseRipple(object):
     xpoints = np.linspace(x0, x1, N)
     zpoints = np.linspace(z0, z1, N)
     self._set_qxqz(self.h, self.k)
-    exp_F = self.apply_Lorentz_correction(self.I)
-    exp_F = sqrt(exp_F)
     for x, z in zip(xpoints, zpoints):
-      tmp = self.phase * exp_F * np.cos(self.qx*x+self.qz*z)
+      tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
       dist = np.sqrt((x-x0)**2 + (z-z0)**2)
       rho.append([dist, tmp.sum(axis=0)])
     rho = np.array(rho, float)
@@ -336,10 +331,8 @@ class BaseRipple(object):
     normalized at (h=1,k=0).
     """
     self._set_qxqz(self.h, self.k)
-    common_scale = self.edp_par['common_scale'].value
-    model_F = self._model_F() * sqrt(common_scale)
-    exp_F = self.apply_Lorentz_correction(self.I)
-    exp_F = sqrt(exp_F)
+    model_F = self._model_F()
+    exp_F = self.F
     # exp_F is normalized at (h=1,k=0) peak
     expF_10 = exp_F[(self.h==1)&(self.k==0)]
     exp_F = exp_F / expF_10 * 100
@@ -354,10 +347,10 @@ class BaseRipple(object):
     method to call, which should be implemented in a derived class.
     """
     self._set_qxqz(self.h, self.k)
-    chi_square = ((self._model_observed_I()-self.I) / self.sigma) ** 2
+    chi_square = ((self._model_intrinsic_I()-self.I) / self.sigma) ** 2
     print(" h  k     qx     qz      q      model          I     sigma     chi^2")
     for a, b, c, d, e, f, g, h, i in \
-      zip(self.h, self.k, self.qx, self.qz, self.q, self._model_observed_I(), 
+      zip(self.h, self.k, self.qx, self.qz, self.q, self._model_intrinsic_I(), 
           self.I, self.sigma, chi_square):
       print("{0: 1d} {1: 1d} {2: .3f} {3: .3f} {4: .3f} {5: 10.0f} {6: 10.0f} \
 {7: 9.0f} {8: 9.0f}".format(a, b, c, d, e, f, g, h, i))
@@ -450,7 +443,7 @@ class BaseRipple(object):
     self._set_qxqz(np.append(self.h, np.array(h)), 
                    np.append(self.k, np.array(k)))
     
-    model = self._model_observed_I()
+    model = self._model_intrinsic_I()
     
     #Split the model to indivial and combined peaks
     model_indiv = model[0:len(self.h)]
@@ -495,6 +488,13 @@ class BaseRipple(object):
     I = I * common_scale
     return I
     
+  def _model_intrinsic_I(self):
+    """
+    Intrinsic intensity, which is simply |F|^2
+    """
+    I = self._model_F()**2
+    return I
+    
   def _model_F(self):
     """
     Return the model form factor. The return object is a numpy array with
@@ -515,8 +515,7 @@ class BaseRipple(object):
     xgrid = np.linspace(xmin, xmax, num=N)
     zgrid = np.linspace(zmin, zmax, num=N)
     self._set_qxqz(self.h, self.k)
-    exp_F = self.apply_Lorentz_correction(self.I)
-    exp_F = sqrt(exp_F)
+    exp_F = self.F
     for x in xgrid:
       for z in zgrid:
         tmp = self.phase * exp_F * np.cos(self.qx*x+self.qz*z)
@@ -546,8 +545,7 @@ class BaseRipple(object):
     xpoints = np.linspace(x0, x1, N)
     zpoints = np.linspace(z0, z1, N)
     self._set_qxqz(self.h, self.k)
-    exp_F = self.apply_Lorentz_correction(self.I)
-    exp_F = sqrt(exp_F)
+    exp_F = self.F
     for x, z in zip(xpoints, zpoints):
       tmp = self.phase * exp_F * np.cos(self.qx*x+self.qz*z)
       dist = np.sqrt((x-x0)**2 + (z-z0)**2)
@@ -567,10 +565,8 @@ class BaseRipple(object):
     outfilename: output file name
     """
     self._set_qxqz(self.h, self.k)
-    common_scale = self.edp_par['common_scale'].value
-    model_F = self._model_F() * sqrt(common_scale)
-    exp_F = self.apply_Lorentz_correction(self.I)
-    exp_F = sqrt(exp_F)
+    model_F = self._model_F()
+    exp_F = self.F
     # exp_F is normalized at (h=1,k=0) peak
     expF_10 = exp_F[(self.h==1)&(self.k==0)]
     exp_F = exp_F / expF_10 * 100
@@ -586,7 +582,7 @@ class BaseRipple(object):
     consisting of nine columns.
     """
     self._set_qxqz(self.h, self.k)
-    chi_square = ((self._model_observed_I()-self.I) / self.sigma) ** 2
+    chi_square = ((self._model_intrinsic_I()-self.I) / self.sigma) ** 2
     with open(outfilename, 'w') as ff:
       ff.write(" h  k     qx     qz      q    I_model   I_exp  sigma   chi^2\n")
       for a, b, c, d, e, f, g, h, i in \
@@ -613,8 +609,9 @@ class Sawtooth(BaseRipple):
     """
     f1 = self.edp_par['f1'].value
     f2 = self.edp_par['f2'].value
+    common_scale = self.edp_par['common_scale'].value
     #sec = (-1)**self.k * (lr-x0) * sin(self.k*pi-w)/(self.k*pi-w)/lr
-    return (self.FCmajor()*self.FTmajor() + 
+    return common_scale * (self.FCmajor()*self.FTmajor() + 
             f1*self.FCminor()*self.FTminor() + 
             f2*self.FCkink()*self.FTkink()) 
     
@@ -647,18 +644,17 @@ class SDF(Sawtooth):
                x0=100, A=20, 
                common_scale=20, R_HM=2, X_h=20, psi=0.087):
     super(SDF, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A)
-    self.edp_par.add('common_scale', value=common_scale, vary=True, min=1)
+    self.edp_par.add('common_scale', value=common_scale, vary=True, min=0)
     self.edp_par.add('R_HM', value=R_HM, vary=True, min=0)
     self.edp_par.add('X_h', value=X_h, vary=True, min=0)
     self.edp_par.add('psi', value=psi, vary=True)
   
   def FTmajor(self):
-    common_scale = self.edp_par['common_scale'].value
     R_HM = self.edp_par['R_HM'].value
     X_h = self.edp_par['X_h'].value
     psi = self.edp_par['psi'].value  
     arg = self.qz*X_h*np.cos(psi) - self.qx*X_h*np.sin(psi)
-    return common_scale * (R_HM*np.cos(arg) - 1)
+    return (R_HM*np.cos(arg) - 1)
   
   def FTminor(self):
     return self.FTmajor()
@@ -708,10 +704,9 @@ class S2G(Sawtooth):
     rho_M = self.edp_par['rho_M'].value
     sigma_M = self.edp_par['sigma_M'].value
     psi = self.edp_par['psi'].value  
-    common_scale = self.edp_par['common_scale'].value
     
     return self.F2G(rho_H1, Z_H1, sigma_H1, rho_H2, Z_H2, sigma_H2,
-                    rho_M, sigma_M, psi, common_scale)
+                    rho_M, sigma_M, psi)
 
   def FTminor(self):
     return self.FTmajor()
@@ -720,7 +715,7 @@ class S2G(Sawtooth):
     return self.FTmajor()
         
   def F2G(self, rho_H1, Z_H1, sigma_H1, rho_H2, Z_H2, sigma_H2,
-              rho_M, sigma_M, psi, common_scale):
+              rho_M, sigma_M, psi):
     """
     Form factor calculated from the 2G hybrid model
     """  
@@ -752,7 +747,7 @@ class S2G(Sawtooth):
     FB *= 0.5
     FB -= (sin(alpha*Z_W)-sin(alpha*Z_CH2)) / alpha
                
-    return common_scale * (FG + FS + FB)
+    return (FG + FS + FB)
     
 
 ###############################################################################
@@ -803,19 +798,19 @@ class S1G(Sawtooth):
   def FTmajor(self):
     rho_H1, Z_H1, sigma_H1, rho_M_major, rho_M_minor, sigma_M, psi, common_scale = self.unpack_params()
     
-    return self.F1G(rho_H1, Z_H1, sigma_H1, rho_M_major, sigma_M, psi, common_scale)
+    return self.F1G(rho_H1, Z_H1, sigma_H1, rho_M_major, sigma_M, psi)
     
   def FTminor(self):
     rho_H1, Z_H1, sigma_H1, rho_M_major, rho_M_minor, sigma_M, psi, common_scale = self.unpack_params() 
     
-    return self.F1G(rho_H1, Z_H1, sigma_H1, rho_M_minor, sigma_M, psi, common_scale)
+    return self.F1G(rho_H1, Z_H1, sigma_H1, rho_M_minor, sigma_M, psi)
     
   def FTkink(self):
     rho_H1, Z_H1, sigma_H1, rho_M_major, rho_M_minor, sigma_M, psi, common_scale = self.unpack_params()
     
-    return self.F1G(rho_H1, Z_H1, sigma_H1, rho_M_major, sigma_M, psi, common_scale)
+    return self.F1G(rho_H1, Z_H1, sigma_H1, rho_M_major, sigma_M, psi)
   
-  def F1G(self, rho_H1, Z_H1, sigma_H1, rho_M, sigma_M, psi, common_scale):     
+  def F1G(self, rho_H1, Z_H1, sigma_H1, rho_M, sigma_M, psi):     
     # Calculate the intermediate variables
     alpha = self.qz*cos(psi) - self.qx*sin(psi)
     Z_CH2 = Z_H1 - sigma_H1
@@ -837,7 +832,7 @@ class S1G(Sawtooth):
     FB *= 0.5
     FB -= (sin(alpha*Z_W)-sin(alpha*Z_CH2)) / alpha
                
-    return common_scale * (FG + FS + FB)
+    return (FG + FS + FB)
 
 
 ###############################################################################
