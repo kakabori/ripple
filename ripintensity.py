@@ -500,7 +500,7 @@ class BaseRipple(object):
     Return the model form factor. The return object is a numpy array with
     its length equal to the length of qx.
     """ 
-    model = self.F_trans() * self.F_cont()
+    model = self.F_model()
     return model
     
   def export_2D_edp(self, filename="2Dedp.dat", xmin=-150, xmax=150, 
@@ -607,23 +607,39 @@ class Sawtooth(BaseRipple):
     self.edp_par.add('f1', value=1, vary=False, min=0)
     self.edp_par.add('f2', value=0, vary=False)
   
-  def F_cont(self):
+  def F_model(self):
     """
-    Contuour part of the ripple form factor
+    Ripple form factor
     """
-    x0 = self.edp_par['x0'].value
-    A = self.edp_par['A'].value
     f1 = self.edp_par['f1'].value
     f2 = self.edp_par['f2'].value
+    #sec = (-1)**self.k * (lr-x0) * sin(self.k*pi-w)/(self.k*pi-w)/lr
+    return (self.FCmajor()*self.FTmajor() + 
+            f1*self.FCminor()*self.FTminor() + 
+            f2*self.FCkink()*self.FTkink()) 
+    
+  def FCmajor(self):
+    x0 = self.edp_par['x0'].value
+    A = self.edp_par['A'].value
+    lr = self.latt_par['lambda_r'].value
+    w = 0.5 * (self.qx*x0 + self.qz*A)
+    return x0 * np.sin(w) / lr / w
+
+  def FCminor(self):
+    x0 = self.edp_par['x0'].value
+    A = self.edp_par['A'].value
     lr = self.latt_par['lambda_r'].value
     w = 0.5 * (self.qx*x0 + self.qz*A)
     arg1 = 0.5*self.qx*lr + w
-    arg2 = 0.5*self.qx*lr - w
-    fir = x0 * np.sin(w) / lr / w
-    sec = (lr-x0) * np.cos(0.5*arg1) * np.sin(arg2) / lr / np.cos(0.5*arg2) / arg2 
-    #sec = (-1)**self.k * (lr-x0) * sin(self.k*pi-w)/(self.k*pi-w)/lr
-    return (fir + f1*sec + 2*f2*np.cos(w)/lr) 
-
+    arg2 = 0.5*self.qx*lr - w    
+    return (lr-x0) * np.cos(0.5*arg1) * np.sin(arg2) / lr / np.cos(0.5*arg2) / arg2 
+    
+  def FCkink(self):
+    x0 = self.edp_par['x0'].value
+    A = self.edp_par['A'].value
+    lr = self.latt_par['lambda_r'].value
+    w = 0.5 * (self.qx*x0 + self.qz*A)
+    return 2*np.cos(w)/lr
 
 ###############################################################################
 class SDF(Sawtooth):
@@ -636,10 +652,7 @@ class SDF(Sawtooth):
     self.edp_par.add('X_h', value=X_h, vary=True, min=0)
     self.edp_par.add('psi', value=psi, vary=True)
   
-  def F_trans(self):
-    """
-    Transbilayer part of the ripple form factor
-    """
+  def FTmajor(self):
     common_scale = self.edp_par['common_scale'].value
     R_HM = self.edp_par['R_HM'].value
     X_h = self.edp_par['X_h'].value
@@ -647,6 +660,11 @@ class SDF(Sawtooth):
     arg = self.qz*X_h*np.cos(psi) - self.qx*X_h*np.sin(psi)
     return common_scale * (R_HM*np.cos(arg) - 1)
   
+  def FTminor(self):
+    return self.FTmajor()
+    
+  def FTkink(self):
+    return self.FTmajor()
 
 ###############################################################################
 class MDF(SDF):
@@ -680,10 +698,7 @@ class S2G(Sawtooth):
     self.edp_par.add('psi', value=psi, vary=True)
     self.edp_par.add('common_scale', value=common_scale, vary=True, min=0)    
   
-  def F_trans(self):
-    """
-    Transbilayer part of the ripple form factor
-    """
+  def FTmajor(self):
     rho_H1 = self.edp_par['rho_H1'].value
     Z_H1 = self.edp_par['Z_H1'].value
     sigma_H1 = self.edp_par['sigma_H1'].value
@@ -695,7 +710,20 @@ class S2G(Sawtooth):
     psi = self.edp_par['psi'].value  
     common_scale = self.edp_par['common_scale'].value
     
+    return self.F2G(rho_H1, Z_H1, sigma_H1, rho_H2, Z_H2, sigma_H2,
+                    rho_M, sigma_M, psi, common_scale)
+
+  def FTminor(self):
+    return self.FTmajor()
     
+  def FTkink(self):
+    return self.FTmajor()
+        
+  def F2G(self, rho_H1, Z_H1, sigma_H1, rho_H2, Z_H2, sigma_H2,
+              rho_M, sigma_M, psi, common_scale):
+    """
+    Form factor calculated from the 2G hybrid model
+    """  
     # Make sure Z_H2 > Z_H1. If Z_H2 < Z_H1, swap them
     if Z_H1 > Z_H2:
       Z_H1, Z_H2 = Z_H2, Z_H1
@@ -748,28 +776,46 @@ class S1G(Sawtooth):
   def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
                x0=100, A=20.27, 
                rho_H1=2.21, Z_H1=20.00, sigma_H1=3.33,
-               rho_M=1, sigma_M=3, psi=0.087, common_scale=0.1):
+               rho_M_major=1, sigma_M=3, psi=0.087, common_scale=0.1,
+               rho_M_minor=1):
     super(S1G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A)
     self.edp_par.add('rho_H1', value=rho_H1, vary=True, min=0)
     self.edp_par.add('Z_H1', value=Z_H1, vary=True, min=0, max=60)
     self.edp_par.add('sigma_H1', value=sigma_H1, vary=True, min=0, max=10)
-    self.edp_par.add('rho_M', value=rho_M, vary=True, min=0)    
+    self.edp_par.add('rho_M_major', value=rho_M_major, vary=True)    
+    self.edp_par.add('rho_M_minor', value=rho_M_minor, vary=True) 
     self.edp_par.add('sigma_M', value=sigma_M, vary=True, min=0, max=10)   
     self.edp_par.add('psi', value=psi, vary=True)
-    self.edp_par.add('common_scale', value=common_scale, vary=True)    
+    self.edp_par.add('common_scale', value=common_scale, vary=True)   
   
-  def F_trans(self):
-    """
-    Transbilayer part of the ripple form factor
-    """
+  def unpack_params(self):
     rho_H1 = self.edp_par['rho_H1'].value
     Z_H1 = self.edp_par['Z_H1'].value
     sigma_H1 = self.edp_par['sigma_H1'].value
-    rho_M = self.edp_par['rho_M'].value
+    rho_M_major = self.edp_par['rho_M_major'].value
+    rho_M_minor = self.edp_par['rho_M_minor'].value
     sigma_M = self.edp_par['sigma_M'].value
     psi = self.edp_par['psi'].value  
-    common_scale = self.edp_par['common_scale'].value
-       
+    common_scale = self.edp_par['common_scale'].value   
+    
+    return rho_H1, Z_H1, sigma_H1, rho_M_major, rho_M_minor, sigma_M, psi, common_scale
+      
+  def FTmajor(self):
+    rho_H1, Z_H1, sigma_H1, rho_M_major, rho_M_minor, sigma_M, psi, common_scale = self.unpack_params()
+    
+    return self.F1G(rho_H1, Z_H1, sigma_H1, rho_M_major, sigma_M, psi, common_scale)
+    
+  def FTminor(self):
+    rho_H1, Z_H1, sigma_H1, rho_M_major, rho_M_minor, sigma_M, psi, common_scale = self.unpack_params() 
+    
+    return self.F1G(rho_H1, Z_H1, sigma_H1, rho_M_minor, sigma_M, psi, common_scale)
+    
+  def FTkink(self):
+    rho_H1, Z_H1, sigma_H1, rho_M_major, rho_M_minor, sigma_M, psi, common_scale = self.unpack_params()
+    
+    return self.F1G(rho_H1, Z_H1, sigma_H1, rho_M_major, sigma_M, psi, common_scale)
+  
+  def F1G(self, rho_H1, Z_H1, sigma_H1, rho_M, sigma_M, psi, common_scale):     
     # Calculate the intermediate variables
     alpha = self.qz*cos(psi) - self.qx*sin(psi)
     Z_CH2 = Z_H1 - sigma_H1
@@ -799,10 +845,11 @@ class M1G(S1G):
   def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
                x0=100, A=20, f1=1, f2=0, 
                rho_H1=2.21, Z_H1=20.24, sigma_H1=3.33,
-               rho_M=1, sigma_M=3, psi=0.087, common_scale=0.1):
+               rho_M_major=1, sigma_M=3, psi=0.087, common_scale=0.1,
+               rho_M_minor=1):
     super(M1G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A, 
                               rho_H1, Z_H1, sigma_H1, 
-                              rho_M, sigma_M, psi, common_scale)
+                              rho_M_major, sigma_M, psi, common_scale, rho_M_minor)
     self.edp_par['f1'].value = f1
     self.edp_par['f2'].value = f2
     self.edp_par['f1'].vary = True

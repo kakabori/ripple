@@ -11,19 +11,21 @@ if __name__ == "__main__":
 ###############################################################################
   # Work on M1G
   m1g = M1G(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714,
-            x0=90, A=18, f1=0.6, f2=-1, 
-            rho_H1=10.77, Z_H1=19.3, sigma_H1=3.43,
-            rho_M=9.23, sigma_M=1.67, psi=0.3, common_scale=1)
+            x0=118, A=25.8, f1=0.9, f2=-11, 
+            rho_H1=10.77, Z_H1=19.8, sigma_H1=3.43,
+            rho_M_major=9.23, sigma_M=1.67, psi=0.27, common_scale=1.3,
+            rho_M_minor=9.23)
 #  m1g.fit_lattice()
   m1g.edp_par['rho_H1'].vary = False
   m1g.edp_par['sigma_H1'].vary = False
-  m1g.edp_par['rho_M'].vary = False
+  m1g.edp_par['rho_M_major'].vary = False
+  m1g.edp_par['rho_M_minor'].vary = False
   m1g.edp_par['sigma_M'].vary = False 
-#  m1g.fit_edp()
-#  m1g.export_model_F("h9_F_m1g.dat")
-#  m1g.export_model_I("h9_I_m1g.dat")
-#  m1g.export_2D_edp("h9_2D_edp_m1g.dat")
-#  m1g.report_edp()   
+  m1g.fit_edp()
+  m1g.export_model_F("h9_F_m1g.dat")
+  m1g.export_model_I("h9_I_m1g.dat")
+  m1g.export_2D_edp("h9_2D_edp_m1g.dat")
+  m1g.report_edp()   
 
 ###############################################################################
   # Work on M2G
@@ -45,11 +47,11 @@ if __name__ == "__main__":
   m2g.edp_par['sigma_H2'].vary = True
   m2g.edp_par['rho_M'].vary = False
   m2g.edp_par['sigma_M'].vary = False
-  m2g.fit_edp()
-  m2g.export_model_F("h9_F_m2g_sH2_free.dat")
-  m2g.export_model_I("h9_I_m2g_sH2_free.dat")
-  m2g.export_2D_edp("h9_2D_edp_m2g_sH2_free.dat")
-  m2g.report_edp()
+#  m2g.fit_edp()
+#  m2g.export_model_F("h9_F_m2g_sH2_free.dat")
+#  m2g.export_model_I("h9_I_m2g_sH2_free.dat")
+#  m2g.export_2D_edp("h9_2D_edp_m2g_sH2_free.dat")
+#  m2g.report_edp()
 
 ###############################################################################
   # Work on S2G
@@ -75,12 +77,14 @@ if __name__ == "__main__":
   s1g = S1G(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714, 
             x0=103, A=18.5, 
             rho_H1=10.77, Z_H1=20.86, sigma_H1=3.43,
-            rho_M=9.23, sigma_M=1.67, psi=0.0873, common_scale=5)
+            rho_M_major=9.23, sigma_M=1.67, psi=0.0873, common_scale=5,
+            rho_M_minor=9.23)
 #  s1g.set_combined_peaks(combined)
 #  s1g.fit_lattice()
   s1g.edp_par['rho_H1'].vary = False
   s1g.edp_par['sigma_H1'].vary = False
-  s1g.edp_par['rho_M'].vary = False
+  s1g.edp_par['rho_M_major'].vary = False
+  s1g.edp_par['rho_M_minor'].vary = False
   s1g.edp_par['sigma_M'].vary = False 
 #  s1g.fit_edp()
 #  s1g.export_model_F("h9_F_s1g.dat")
