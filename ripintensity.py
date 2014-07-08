@@ -247,7 +247,30 @@ class BaseRipple(object):
     rotate_Z = ndimage.rotate(Z, 90)
     imgplot = plt.imshow(rotate_Z,extent=[-150,150,-100,100],cmap='gray')
     return imgplot
-           
+  
+  def plot_2D_model_edp(self, xmin=-150, xmax=150, zmin=-100, zmax=100, N=201):
+    rho_xz = []
+    xgrid = np.linspace(xmin, xmax, num=N)
+    zgrid = np.linspace(zmin, zmax, num=N)  
+    self._set_qxqz(self.h, self.k)
+    F = self._model_F()
+    for x in xgrid:
+      for z in zgrid:
+        tmp = F * np.cos(self.qx*x+self.qz*z)
+        rho_xz.append([x, z, tmp.sum(axis=0)])
+    rho_xz = np.array(rho_xz, float)  
+    X, Y, Z= rho_xz[:,0], rho_xz[:,1], rho_xz[:,2]
+    #Y = rho_xz[:,1]
+    #Z = rho_xz[:,2]
+    X.shape = (N, N)
+    Y.shape = (N, N)
+    Z.shape = (N, N)
+    plt.figure()
+    #plt.contourf(X, Y, Z)
+    rotate_Z = ndimage.rotate(Z, 90)
+    imgplot = plt.imshow(rotate_Z,extent=[-150,150,-100,100],cmap='gray')
+    return imgplot  
+            
   def calc_2D_edp(self, xmin=-100, xmax=100, zmin=-100, zmax=100, N=201):
     """
     Fourier-reconstruct a 2D map of the electron density profile and return
@@ -295,7 +318,24 @@ class BaseRipple(object):
     Y = rho[:,1]
     plt.figure()
     plt.plot(X, Y)
-   
+
+  def plot_1D_model_edp(self, start=(-10,25), end=(30,-20), N=100):
+    rho = []
+    x0, z0 = start
+    x1, z1 = end
+    xpoints = np.linspace(x0, x1, N)
+    zpoints = np.linspace(z0, z1, N)
+    self._set_qxqz(self.h, self.k)
+    for x, z in zip(xpoints, zpoints):
+      tmp = self._model_F() * np.cos(self.qx*x+self.qz*z)
+      dist = np.sqrt((x-x0)**2 + (z-z0)**2)
+      rho.append([dist, tmp.sum(axis=0)])
+    rho = np.array(rho, float)
+    X = rho[:,0]
+    Y = rho[:,1]
+    plt.figure()
+    plt.plot(X, Y)
+       
   def apply_Lorentz_correction(self, I):
     """
     Apply the Lorentz correction to the input intensity and return it. 
@@ -600,7 +640,7 @@ class Sawtooth(BaseRipple):
     self.edp_par = Parameters()
     self.edp_par.add('x0', value=x0, vary=True)
     self.edp_par.add('A', value=A, vary=True)
-    self.edp_par.add('f1', value=1, vary=False, min=0)
+    self.edp_par.add('f1', value=1, vary=False)
     self.edp_par.add('f2', value=0, vary=False)
   
   def F_model(self):
@@ -770,45 +810,79 @@ class M2G(S2G):
 class S1G(Sawtooth):
   def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
                x0=100, A=20.27, 
-               rho_H1=2.21, Z_H1=20.00, sigma_H1=3.33,
-               rho_M_major=1, sigma_M=3, psi=0.087, common_scale=0.1,
-               rho_M_minor=1):
+               rho_H_major=2.21, rho_H_minor=2.21,
+               Z_H_major=20.00, Z_H_minor=20.00,
+               sigma_H_major=3.33, sigma_H_minor=3.33,
+               rho_M_major=1, rho_M_minor=1,
+               sigma_M_major=3, sigma_M_minor=3,
+               psi_major=0.087, psi_minor=0.087,
+               common_scale=0.1):
     super(S1G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A)
-    self.edp_par.add('rho_H1', value=rho_H1, vary=True, min=0)
-    self.edp_par.add('Z_H1', value=Z_H1, vary=True, min=0, max=60)
-    self.edp_par.add('sigma_H1', value=sigma_H1, vary=True, min=0, max=10)
+    self.edp_par.add('rho_H_major', value=rho_H_major, vary=True)
+    self.edp_par.add('rho_H_minor', value=rho_H_minor, vary=False)
+    self.edp_par.add('Z_H_major', value=Z_H_major, vary=True, min=0, max=60)
+    self.edp_par.add('Z_H_minor', value=Z_H_minor, vary=False, min=0, max=60)
+    self.edp_par.add('sigma_H_major', value=sigma_H_major, vary=True, min=0, max=10)
+    self.edp_par.add('sigma_H_minor', value=sigma_H_minor, vary=False, min=0, max=10)
     self.edp_par.add('rho_M_major', value=rho_M_major, vary=True)    
-    self.edp_par.add('rho_M_minor', value=rho_M_minor, vary=True) 
-    self.edp_par.add('sigma_M', value=sigma_M, vary=True, min=0, max=10)   
-    self.edp_par.add('psi', value=psi, vary=True)
-    self.edp_par.add('common_scale', value=common_scale, vary=True)   
+    self.edp_par.add('rho_M_minor', value=rho_M_minor, vary=False) 
+    self.edp_par.add('sigma_M_major', value=sigma_M_major, vary=True, min=0, max=10)  
+    self.edp_par.add('sigma_M_minor', value=sigma_M_minor, vary=False, min=0, max=10)
+    self.edp_par.add('psi_major', value=psi_major, vary=True)
+    self.edp_par.add('psi_minor', value=psi_minor, vary=False)
+    self.edp_par.add('common_scale', value=common_scale, vary=True) 
+    self.link_rho_H = True
+    self.link_Z_H = True
+    self.link_sigma_H = True
+    self.link_rho_M = True
+    self.link_sigma_M = True
+    self.link_psi = True  
   
-  def unpack_params(self):
-    rho_H1 = self.edp_par['rho_H1'].value
-    Z_H1 = self.edp_par['Z_H1'].value
-    sigma_H1 = self.edp_par['sigma_H1'].value
+  def unpack_major(self):
+    rho_H_major = self.edp_par['rho_H_major'].value
+    Z_H_major = self.edp_par['Z_H_major'].value
+    sigma_H_major = self.edp_par['sigma_H_major'].value
     rho_M_major = self.edp_par['rho_M_major'].value
+    sigma_M_major = self.edp_par['sigma_M_major'].value
+    psi_major = self.edp_par['psi_major'].value  
+    
+    return rho_H_major, Z_H_major, sigma_H_major, rho_M_major, sigma_M_major, psi_major
+    
+  def unpack_minor(self):
+    rho_H_minor = self.edp_par['rho_H_minor'].value
+    Z_H_minor = self.edp_par['Z_H_minor'].value
+    sigma_H_minor = self.edp_par['sigma_H_minor'].value
     rho_M_minor = self.edp_par['rho_M_minor'].value
-    sigma_M = self.edp_par['sigma_M'].value
-    psi = self.edp_par['psi'].value  
-    common_scale = self.edp_par['common_scale'].value   
+    sigma_M_minor = self.edp_par['sigma_M_minor'].value
+    psi_minor = self.edp_par['psi_minor'].value  
     
-    return rho_H1, Z_H1, sigma_H1, rho_M_major, rho_M_minor, sigma_M, psi, common_scale
-      
+    return rho_H_minor, Z_H_minor, sigma_H_minor, rho_M_minor, sigma_M_minor, psi_minor
+       
   def FTmajor(self):
-    rho_H1, Z_H1, sigma_H1, rho_M_major, rho_M_minor, sigma_M, psi, common_scale = self.unpack_params()
-    
-    return self.F1G(rho_H1, Z_H1, sigma_H1, rho_M_major, sigma_M, psi)
+    rho_H, Z_H, sigma_H, rho_M, sigma_M, psi = self.unpack_major() 
+    return self.F1G(rho_H, Z_H, sigma_H, rho_M, sigma_M, psi)
     
   def FTminor(self):
-    rho_H1, Z_H1, sigma_H1, rho_M_major, rho_M_minor, sigma_M, psi, common_scale = self.unpack_params() 
+    rho_H, Z_H, sigma_H, rho_M, sigma_M, psi = self.unpack_major()
+    if self.link_rho_H is True:
+      self.edp_par['rho_H_minor'].value = rho_H
+    if self.link_Z_H is True:
+      self.edp_par['Z_H_minor'].value = Z_H
+    if self.link_sigma_H is True:
+      self.edp_par['sigma_H_minor'].value = sigma_H
+    if self.link_rho_M is True:
+      self.edp_par['rho_M_minor'].value = rho_M
+    if self.link_sigma_M is True:
+      self.edp_par['sigma_M_minor'].value = sigma_M
+    if self.link_psi is True:
+      self.edp_par['psi_minor'].value = psi
     
-    return self.F1G(rho_H1, Z_H1, sigma_H1, rho_M_minor, sigma_M, psi)
+    rho_H, Z_H, sigma_H, rho_M, sigma_M, psi = self.unpack_minor()
+    return self.F1G(rho_H, Z_H, sigma_H, rho_M, sigma_M, psi)
     
   def FTkink(self):
-    rho_H1, Z_H1, sigma_H1, rho_M_major, rho_M_minor, sigma_M, psi, common_scale = self.unpack_params()
-    
-    return self.F1G(rho_H1, Z_H1, sigma_H1, rho_M_major, sigma_M, psi)
+    rho_H, Z_H, sigma_H, rho_M, sigma_M, psi = self.unpack_major() 
+    return self.F1G(rho_H, Z_H, sigma_H, rho_M, sigma_M, psi)
   
   def F1G(self, rho_H1, Z_H1, sigma_H1, rho_M, sigma_M, psi):     
     # Calculate the intermediate variables
@@ -839,12 +913,21 @@ class S1G(Sawtooth):
 class M1G(S1G):
   def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
                x0=100, A=20, f1=1, f2=0, 
-               rho_H1=2.21, Z_H1=20.24, sigma_H1=3.33,
-               rho_M_major=1, sigma_M=3, psi=0.087, common_scale=0.1,
-               rho_M_minor=1):
+               rho_H_major=2.21, rho_H_minor=2.21,
+               Z_H_major=20.00, Z_H_minor=20.00,
+               sigma_H_major=3.33, sigma_H_minor=3.33,
+               rho_M_major=1, rho_M_minor=1,
+               sigma_M_major=3, sigma_M_minor=3,
+               psi_major=0.087, psi_minor=0.087,
+               common_scale=0.1):
     super(M1G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A, 
-                              rho_H1, Z_H1, sigma_H1, 
-                              rho_M_major, sigma_M, psi, common_scale, rho_M_minor)
+                              rho_H_major, rho_H_minor,
+                              Z_H_major, Z_H_minor,
+                              sigma_H_major, sigma_H_minor, 
+                              rho_M_major, rho_M_minor,
+                              sigma_M_major, sigma_M_minor,
+                              psi_major, psi_minor,
+                              common_scale)
     self.edp_par['f1'].value = f1
     self.edp_par['f2'].value = f2
     self.edp_par['f1'].vary = True
