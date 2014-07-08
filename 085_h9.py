@@ -11,10 +11,10 @@ if __name__ == "__main__":
 ###############################################################################
   # Work on M1G
   m1g = M1G(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714,
-            x0=118, A=25.8, f1=0.9, f2=-11, 
-            rho_H1=10.77, Z_H1=19.8, sigma_H1=3.43,
-            rho_M_major=9.23, sigma_M=1.67, psi=0.27, common_scale=1.3,
-            rho_M_minor=-9.23)
+            x0=120.5, A=25.78, f1=1.15, f2=-12.87, 
+            rho_H1=10.77, Z_H1=20.08, sigma_H1=3.43,
+            rho_M_major=9.23, sigma_M=1.67, psi=0.32, common_scale=3,
+            rho_M_minor=-5.15)
 #  m1g.fit_lattice()
   m1g.edp_par['rho_H1'].vary = False
   m1g.edp_par['sigma_H1'].vary = False
