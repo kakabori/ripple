@@ -467,7 +467,7 @@ class BaseRipple(object):
     """
     lmfit.report_fit(self.edp_par)
     print("chisqr = {0:.3f}".format(self.edp.chisqr))
-        
+
   def fit_edp(self):
     """
     Start a non-linear least squared fit for electron density profile
@@ -631,7 +631,7 @@ class BaseRipple(object):
         ff.write("{0: 1d} {1: 1d} {2: .3f} {3: .3f} {4: .3f} {5: 8.0f} {6: 8.0f} \
 {7: 5.0f} {8: 9.0f}\n".format(a, b, c, d, e, f, g, h, i))
       ff.write("\nTotal chi^2 = {0: .0f}".format(np.sum(chi_square)))
-
+    
 ###############################################################################
 class Sawtooth(BaseRipple):
   def __init__(self, h, k, q, I, sigma, D=57.8, lambda_r=145, gamma=1.71, 
@@ -933,7 +933,37 @@ class M1G(S1G):
     self.edp_par['f1'].vary = True
     self.edp_par['f2'].vary = True
 
-
+  def export_params(self, outfilename="params.txt"):
+    with open(outfilename, 'w') as f:
+      f.write("chisqr={0: f}\n".format(self.edp.chisqr))
+      f.write("D={0: f}\n".format(self.latt_par['D'].value))
+      f.write("lambda_r={0: f}\n".format(self.latt_par['lambda_r'].value))
+      f.write("gamma={0: f}\n\n".format(self.latt_par['gamma'].value))      
+      f.write(lmfit.fit_report(self.edp_par))
+              
+  def export_params2(self, outfilename="params.txt"):
+    with open(outfilename, 'w') as f:
+      f.write("D={0: f}\n".format(self.latt_par['D'].value))
+      f.write("lambda_r={0: f}\n".format(self.latt_par['lambda_r'].value))
+      f.write("gamma={0: f}\n".format(self.latt_par['gamma'].value))
+      f.write("x0={0: f}, {1: b}\n".format(self.edp_par['x0'].value, self.edp_par['x0'].vary))
+      f.write("A={0: f}, {1: b}\n".format(self.edp_par['A'].value, self.edp_par['A'].vary))
+      f.write("f1={0: f}, {1: b}\n".format(self.edp_par['f1'].value, self.edp_par['f1'].vary))
+      f.write("f2={0: f}, {1: b}\n".format(self.edp_par['f2'].value, self.edp_par['f2'].vary))
+      f.write("rho_H_major={0: f}, {1: b}\n".format(self.edp_par['rho_H_major'].value, self.edp_par['rho_H_major'].vary))
+      f.write("rho_H_minor={0: f}, {1: b}\n".format(self.edp_par['rho_H_minor'].value, self.edp_par['rho_H_minor'].vary))
+      f.write("Z_H_major={0: f}, {1: b}\n".format(self.edp_par['Z_H_major'].value, self.edp_par['Z_H_major'].vary))
+      f.write("Z_H_minor={0: f}, {1: b}\n".format(self.edp_par['Z_H_minor'].value, self.edp_par['Z_H_minor'].vary))
+      f.write("sigma_H_major={0: f}, {1: b}\n".format(self.edp_par['sigma_H_major'].value, self.edp_par['sigma_H_major'].vary))
+      f.write("sigma_H_minor={0: f}, {1: b}\n".format(self.edp_par['sigma_H_minor'].value, self.edp_par['sigma_H_minor'].vary))
+      f.write("rho_M_major={0: f}, {1: b}\n".format(self.edp_par['rho_M_major'].value, self.edp_par['rho_M_major'].vary))
+      f.write("rho_M_minor={0: f}, {1: b}\n".format(self.edp_par['rho_M_minor'].value, self.edp_par['rho_M_minor'].vary))
+      f.write("sigma_M_major={0: f}, {1: b}\n".format(self.edp_par['sigma_M_major'].value, self.edp_par['sigma_M_major'].vary))
+      f.write("sigma_M_minor={0: f}, {1: b}\n".format(self.edp_par['sigma_M_minor'].value, self.edp_par['sigma_M_minor'].vary))
+      f.write("psi_major={0: f}, {1: b}\n".format(self.edp_par['psi_major'].value, self.edp_par['psi_major'].vary))
+      f.write("psi_minor={0: f}, {1: b}\n".format(self.edp_par['psi_minor'].value, self.edp_par['psi_minor'].vary))
+      f.write("common_scale={0: f}, {1: b}\n".format(self.edp_par['common_scale'].value, self.edp_par['common_scale'].vary))
+   
 ###############################################################################
 def F_C(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,x0=103,A=18.6):
   qx = 2*pi*k/lr

@@ -11,7 +11,7 @@ if __name__ == "__main__":
 ###############################################################################
   # Work on M1G
   m1g = M1G(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714,
-            x0=120.5, A=25.78, f1=1, f2=0, 
+            x0=110.5, A=25.78, f1=0.8, f2=-12, 
             rho_H_major=10.77, rho_H_minor=10.77,
             Z_H_major=20.08, Z_H_minor=20.08,
             sigma_H_major=3.43, sigma_H_minor=3.43,
@@ -21,13 +21,13 @@ if __name__ == "__main__":
             common_scale=3)
 #  m1g.fit_lattice()
   m1g.edp_par['f1'].vary = True
-  m1g.edp_par['f2'].vary = False
+  m1g.edp_par['f2'].vary = True
   m1g.edp_par['rho_H_major'].vary = False
   m1g.edp_par['rho_H_minor'].vary = False
   m1g.link_rho_H = True
   m1g.edp_par['Z_H_major'].vary =True
-  m1g.edp_par['Z_H_minor'].vary = False
-  m1g.link_Z_H = True
+  m1g.edp_par['Z_H_minor'].vary = True
+  m1g.link_Z_H = False
   m1g.edp_par['sigma_H_major'].vary = False
   m1g.edp_par['sigma_H_minor'].vary = False
   m1g.link_sigma_H = True
@@ -41,9 +41,10 @@ if __name__ == "__main__":
   m1g.edp_par['psi_minor'].vary = False
   m1g.link_psi = True
   m1g.fit_edp()
-#  m1g.export_model_F("h9_F_m1g.dat")
-#  m1g.export_model_I("h9_I_m1g.dat")
-#  m1g.export_2D_edp("h9_2D_edp_m1g.dat")
+  m1g.export_model_F("fit6_F.txt")
+  m1g.export_model_I("fit6_I.txt")
+  m1g.export_2D_edp("fit6_2D_edp.txt")
+  m1g.export_params("fit6_params.txt")
   m1g.report_edp()   
 
 ###############################################################################
