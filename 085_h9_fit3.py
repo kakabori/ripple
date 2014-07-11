@@ -26,8 +26,8 @@ if __name__ == "__main__":
   m1g.edp_par['rho_H_minor'].vary = False
   m1g.link_rho_H = True
   m1g.edp_par['Z_H_major'].vary =True
-  m1g.edp_par['Z_H_minor'].vary = False
-  m1g.link_Z_H = True
+  m1g.edp_par['Z_H_minor'].vary = True
+  m1g.link_Z_H = False
   m1g.edp_par['sigma_H_major'].vary = False
   m1g.edp_par['sigma_H_minor'].vary = False
   m1g.link_sigma_H = True
@@ -41,10 +41,10 @@ if __name__ == "__main__":
   m1g.edp_par['psi_minor'].vary = False
   m1g.link_psi = True
   m1g.fit_edp()
-  m1g.export_model_F("fit1_F.txt")
-  m1g.export_model_I("fit1_I.txt")
-  m1g.export_2D_edp("fit1_2D_edp.txt")
-  m1g.export_params("fit1_params.txt")
+  m1g.export_model_F("fit2_F.txt")
+  m1g.export_model_I("fit2_I.txt")
+  m1g.export_2D_edp("fit2_2D_edp.txt")
+  m1g.export_params("fit2_params.txt")
   m1g.report_edp()   
 
 ###############################################################################

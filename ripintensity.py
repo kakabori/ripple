@@ -881,7 +881,8 @@ class S1G(Sawtooth):
     return self.F1G(rho_H, Z_H, sigma_H, rho_M, sigma_M, psi)
     
   def FTkink(self):
-    rho_H, Z_H, sigma_H, rho_M, sigma_M, psi = self.unpack_major() 
+    rho_H, Z_H, sigma_H, rho_M, sigma_M, psi = self.unpack_major()
+    #rho_H, Z_H, sigma_H, rho_M, sigma_M, psi = self.unpack_minor() 
     return self.F1G(rho_H, Z_H, sigma_H, rho_M, sigma_M, psi)
   
   def F1G(self, rho_H1, Z_H1, sigma_H1, rho_M, sigma_M, psi):     
