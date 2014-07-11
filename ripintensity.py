@@ -631,7 +631,15 @@ class BaseRipple(object):
         ff.write("{0: 1d} {1: 1d} {2: .3f} {3: .3f} {4: .3f} {5: 8.0f} {6: 8.0f} \
 {7: 5.0f} {8: 9.0f}\n".format(a, b, c, d, e, f, g, h, i))
       ff.write("\nTotal chi^2 = {0: .0f}".format(np.sum(chi_square)))
-    
+
+  def export_params(self, outfilename="params.txt"):
+    with open(outfilename, 'w') as f:
+      f.write("chisqr={0: f}\n".format(self.edp.chisqr))
+      f.write("D={0: f}\n".format(self.latt_par['D'].value))
+      f.write("lambda_r={0: f}\n".format(self.latt_par['lambda_r'].value))
+      f.write("gamma={0: f}\n\n".format(self.latt_par['gamma'].value))      
+      f.write(lmfit.fit_report(self.edp_par))
+          
 ###############################################################################
 class Sawtooth(BaseRipple):
   def __init__(self, h, k, q, I, sigma, D=57.8, lambda_r=145, gamma=1.71, 
@@ -724,10 +732,10 @@ class S2G(Sawtooth):
                rho_M=1, sigma_M=3, psi=0.087, common_scale=0.1):
     super(S2G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A)
     self.edp_par.add('rho_H1', value=rho_H1, vary=True, min=0)
-    self.edp_par.add('Z_H1', value=Z_H1, vary=True, min=0, max=60)
-    self.edp_par.add('sigma_H1', value=sigma_H1, vary=True, min=0, max=10)
+    self.edp_par.add('Z_H1', value=Z_H1, vary=True, min=0, max=30)
+    self.edp_par.add('sigma_H1', value=sigma_H1, vary=True, min=0)
     self.edp_par.add('rho_H2', value=rho_H2, vary=True, min=0)
-    self.edp_par.add('Z_H2', value=Z_H2, vary=True, min=0, max=60)
+    self.edp_par.add('Z_H2', value=Z_H2, vary=True, min=0, max=30)
     self.edp_par.add('sigma_H2', value=sigma_H2, vary=True, min=0, max=10)
     self.edp_par.add('rho_M', value=rho_M, vary=True, min=0)    
     self.edp_par.add('sigma_M', value=sigma_M, vary=True, min=0, max=10)   
@@ -820,14 +828,14 @@ class S1G(Sawtooth):
     super(S1G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A)
     self.edp_par.add('rho_H_major', value=rho_H_major, vary=True)
     self.edp_par.add('rho_H_minor', value=rho_H_minor, vary=False)
-    self.edp_par.add('Z_H_major', value=Z_H_major, vary=True, min=0, max=60)
-    self.edp_par.add('Z_H_minor', value=Z_H_minor, vary=False, min=0, max=60)
-    self.edp_par.add('sigma_H_major', value=sigma_H_major, vary=True, min=0, max=10)
-    self.edp_par.add('sigma_H_minor', value=sigma_H_minor, vary=False, min=0, max=10)
+    self.edp_par.add('Z_H_major', value=Z_H_major, vary=True, min=0, max=30)
+    self.edp_par.add('Z_H_minor', value=Z_H_minor, vary=False, min=0, max=30)
+    self.edp_par.add('sigma_H_major', value=sigma_H_major, vary=True, min=0)
+    self.edp_par.add('sigma_H_minor', value=sigma_H_minor, vary=False, min=0)
     self.edp_par.add('rho_M_major', value=rho_M_major, vary=True)    
     self.edp_par.add('rho_M_minor', value=rho_M_minor, vary=False) 
-    self.edp_par.add('sigma_M_major', value=sigma_M_major, vary=True, min=0, max=10)  
-    self.edp_par.add('sigma_M_minor', value=sigma_M_minor, vary=False, min=0, max=10)
+    self.edp_par.add('sigma_M_major', value=sigma_M_major, vary=True, min=0)  
+    self.edp_par.add('sigma_M_minor', value=sigma_M_minor, vary=False, min=0)
     self.edp_par.add('psi_major', value=psi_major, vary=True)
     self.edp_par.add('psi_minor', value=psi_minor, vary=False)
     self.edp_par.add('common_scale', value=common_scale, vary=True) 
