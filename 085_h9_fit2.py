@@ -45,6 +45,8 @@ if __name__ == "__main__":
   m1g.export_model_I("fit2_I.txt")
   m1g.export_2D_edp("fit2_2D_edp.txt")
   m1g.export_params("fit2_params.txt")
+  m1g.export_angle("fit2_1D_major.txt", center=(0,0), angle=-11.8, length=80, stepsize=0.1)
+  m1g.export_angle("fit2_1D_minor.txt", center=(72.5,0), angle=27.1, length=80, stepsize=0.1)
   m1g.report_edp()   
 
 ###############################################################################

@@ -1,0 +1,55 @@
+chisqr= 8827.124493
+D= 57.800000
+lambda_r= 145.000000
+gamma= 1.714000
+
+[[Variables]]
+     A:                21.52889 +/- 0.6063122 (2.82%) initial =  22.1346
+     Z_H1:             19.46395 +/- 1.680814 (8.64%) initial =  18.08884
+     Z_H2:             20.43256 +/- 2.302639 (11.27%) initial =  20.02312
+     common_scale:     1.907775 +/- 0.1597026 (8.37%) initial =  1.709416
+     f1:               0.514678 +/- 0.04799671 (9.33%) initial =  0.7760879
+     f2:              -2.771825 +/- 1.123927 (40.55%) initial = -6.055613
+     psi:              0.252265 +/- 0.02292704 (9.09%) initial =  0.1830959
+     rho_H1:           9.91 (fixed)
+     rho_H2:           7.27 (fixed)
+     rho_M:            10.91 (fixed)
+     sigma_H1:         3.056144 +/- 0.5101308 (16.69%) initial =  2.94
+     sigma_H2:         3.165757 +/- 1.070552 (33.82%) initial =  1.47
+     sigma_M:          2.46748 +/- 0.2034187 (8.24%) initial =  1.83
+     x0:               104.0342 +/- 3.539776 (3.40%) initial =  92.63138
+[[Correlations]] (unreported correlations are <  0.100)
+    C(Z_H1, Z_H2)                = -0.981 
+    C(Z_H2, common_scale)        =  0.847 
+    C(Z_H1, common_scale)        = -0.813 
+    C(Z_H1, sigma_H2)            =  0.775 
+    C(A, f2)                     = -0.700 
+    C(Z_H2, sigma_H2)            = -0.698 
+    C(f2, x0)                    = -0.659 
+    C(f1, f2)                    = -0.653 
+    C(sigma_H1, sigma_H2)        = -0.571 
+    C(A, x0)                     =  0.547 
+    C(f1, psi)                   = -0.443 
+    C(common_scale, sigma_H2)    = -0.441 
+    C(psi, sigma_H1)             = -0.353 
+    C(sigma_H2, sigma_M)         = -0.321 
+    C(common_scale, sigma_H1)    = -0.299 
+    C(f1, x0)                    =  0.274 
+    C(sigma_H1, sigma_M)         =  0.257 
+    C(psi, x0)                   = -0.255 
+    C(common_scale, x0)          = -0.244 
+    C(common_scale, f1)          = -0.221 
+    C(psi, sigma_H2)             =  0.220 
+    C(f2, psi)                   =  0.207 
+    C(Z_H2, x0)                  = -0.183 
+    C(f1, sigma_H2)              = -0.175 
+    C(common_scale, psi)         =  0.172 
+    C(Z_H1, x0)                  =  0.169 
+    C(sigma_H1, x0)              =  0.160 
+    C(A, psi)                    = -0.158 
+    C(Z_H1, sigma_M)             = -0.148 
+    C(Z_H2, sigma_M)             =  0.143 
+    C(Z_H2, sigma_H1)            = -0.139 
+    C(A, f1)                     =  0.134 
+    C(f1, sigma_H1)              =  0.103 
+    C(common_scale, f2)          =  0.103 

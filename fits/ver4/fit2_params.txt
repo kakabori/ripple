@@ -1,26 +1,26 @@
-chisqr= 9664.438562
+chisqr= 9664.438567
 D= 57.800000
 lambda_r= 145.000000
 gamma= 1.714000
 
 [[Variables]]
-     A:                 24.167067 +/- 0.404172 (1.67%) initial =  25.780000
-     Z_H_major:         19.725948 +/- 0.170620 (0.86%) initial =  20.080000
-     Z_H_minor:        fixed
-     common_scale:      2.600577 +/- 0.108632 (4.18%) initial =  3.000000
-     f1:                0.726364 +/- 0.076118 (10.48%) initial =  0.800000
-     f2:               -11.345817 +/- 1.107593 (9.76%) initial =  0.000000
-     psi_major:         0.249713 +/- 0.021457 (8.59%) initial =  0.320000
-     psi_minor:        fixed
-     rho_H_major:      fixed
-     rho_H_minor:      fixed
-     rho_M_major:      fixed
-     rho_M_minor:      fixed
-     sigma_H_major:    fixed
-     sigma_H_minor:    fixed
-     sigma_M_major:    fixed
-     sigma_M_minor:    fixed
-     x0:                118.762507 +/- 1.751940 (1.48%) initial =  110.500000
+     A:                 24.16707 +/- 0.4041713 (1.67%) initial =  25.78
+     Z_H_major:         19.72595 +/- 0.1706193 (0.86%) initial =  20.08
+     Z_H_minor:         19.72595 (fixed)
+     common_scale:      2.600576 +/- 0.108632 (4.18%) initial =  3
+     f1:                0.7263643 +/- 0.07611829 (10.48%) initial =  0.8
+     f2:               -11.34582 +/- 1.10759 (9.76%) initial =  0
+     psi_major:         0.2497127 +/- 0.02145715 (8.59%) initial =  0.32
+     psi_minor:         0.2497127 (fixed)
+     rho_H_major:       10.77 (fixed)
+     rho_H_minor:       10.77 (fixed)
+     rho_M_major:       9.23 (fixed)
+     rho_M_minor:       9.23 (fixed)
+     sigma_H_major:     3.43 (fixed)
+     sigma_H_minor:     3.43 (fixed)
+     sigma_M_major:     1.67 (fixed)
+     sigma_M_minor:     1.67 (fixed)
+     x0:                118.7625 +/- 1.751945 (1.48%) initial =  110.5
 [[Correlations]] (unreported correlations are <  0.100)
     C(Z_H_major, psi_major)      =  0.701 
     C(common_scale, f1)          = -0.568 

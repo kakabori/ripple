@@ -452,36 +452,6 @@ class BaseRipple(object):
       f.write("x z ED\n")
       for x, y, z in zip(X, Y, Z):
         f.write("{0: 3.1f} {1: 3.1f} {2: }\n".format(x, y, z))
-
-  def export_1D_edp(self, filename="1Dedp.dat", start=(-10,25), end=(30,-20), 
-                    N=100):
-    """
-    Export the Fourier-reconstructed EDP along a line connecting the start and 
-    end points as an ASCII file consisting of four columns, x, z, distance from
-    the start point, and EDP.
-    
-    filename: output file name
-    start=(xmax,zmax)
-    end=(xmax,zmax)
-    N: number of points on which ED gets calculated
-    """
-    rho = []
-    x0, z0 = start
-    x1, z1 = end
-    xpoints = np.linspace(x0, x1, N)
-    zpoints = np.linspace(z0, z1, N)
-    self._set_qxqz(self.h, self.k)
-    exp_F = self.F
-    for x, z in zip(xpoints, zpoints):
-      tmp = self.phase * exp_F * np.cos(self.qx*x+self.qz*z)
-      dist = np.sqrt((x-x0)**2 + (z-z0)**2)
-      rho.append([x, z, dist, tmp.sum(axis=0)])
-    rho = np.array(rho, float)
-    X, Z, DIST, EDP = rho[:,0], rho[:,1], rho[:,2], rho[:,3]
-    with open(filename, 'w') as f:
-      f.write("x z dist ED\n")
-      for x, z, dist, edp in zip(X, Z, DIST, EDP):
-        f.write("{0: 3.1f} {1: 3.1f} {2: 3.1f} {3: }\n".format(x, z, dist, edp))
   
   def export_model_F(self, outfilename="best_fit_F.dat"):
     """
@@ -628,7 +598,33 @@ class BaseRipple(object):
       xpoints = np.linspace(x-length*sin(angle)/2, x+length*sin(angle)/2, N)
       zpoints = slope * xpoints + intercept
     self.plot_1D_edp(xpoints, zpoints, center)
-  
+	
+  def export_angle(self, filename="1Dedp.dat", center=(0,0), angle=0, length=60, stepsize=0.5):
+    """
+	angle is in degree
+	"""
+    x, z = center
+    N = length/stepsize + 1
+    angle = angle*pi/180
+    
+    # If angle is zero, the slope is infinite. In this case, x is constant.
+    if angle==0:
+      xpoints = x * np.ones(N)
+      zpoints = np.linspace(z-length/2, z+length/2, N)
+    else:
+      slope = 1 / tan(angle)
+      intercept = z - slope*x
+      xpoints = np.linspace(x-length*sin(angle)/2, x+length*sin(angle)/2, N)
+      zpoints = slope * xpoints + intercept
+    self.export_1D_edp(filename, xpoints, zpoints, center)
+
+  def export_line(self, filename, start, end, N): 
+    x0, z0 = start
+    x1, z1 = end
+    xpoints = np.linspace(x0, x1, N)
+    zpoints = np.linspace(z0, z1, N)
+    self.export_1D_edp(filename, xpoints, zpoints, start)
+	
   def plot_line(self, start, end, N=100): 
     """
     Plot Fourier-reconstructed EDP along a line connecting the start and end points
@@ -659,6 +655,24 @@ class BaseRipple(object):
     plt.figure()
     plt.plot(X, Y)
 
+  def export_1D_edp(self, filename, xpoints, zpoints, (x0,z0)):
+    """
+    Export the Fourier-reconstructed EDP.
+    filename: output file name
+    """
+    rho = []
+    self._set_qxqz(self.h, self.k)
+    for x, z in zip(xpoints, zpoints):
+      tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
+      dist = np.sign(z-z0)*np.sqrt((x-x0)**2 + (z-z0)**2)
+      rho.append([x, z, dist, tmp.sum(axis=0)])
+    rho = np.array(rho, float)
+    X, Z, DIST, EDP = rho[:,0], rho[:,1], rho[:,2], rho[:,3]
+    with open(filename, 'w') as f:
+      f.write("x z dist ED\n")
+      for x, z, dist, edp in zip(X, Z, DIST, EDP):
+        f.write("{0: 3.1f} {1: 3.1f} {2: 3.1f} {3: }\n".format(x, z, dist, edp))
+		
   def plot_1D_model_edp(self, start=(-10,25), end=(30,-20), N=100):
     rho = []
     x0, z0 = start
