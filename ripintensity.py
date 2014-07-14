@@ -601,27 +601,35 @@ class BaseRipple(object):
     Z.shape = (N, N)
     return X, Y, Z
   
-  def plot_normal(self, center=(0,0), angle=0, N=50):
+  def plot_angle(self, center=(0,0), angle=0, length=60, stepsize=0.5):
     """
-    Plot along a line making an angle by the stacking z direction. Positive 
-    angle means the line is tilted in CW direction from the z-axis in 
-    the x-z plane.
+    Plot along a line making an angle with respect to the stacking z direction. 
+    Positive angle means the line is tilted in CW direction from the z-axis in 
+    the x-z plane. center specifies about what position the plot should be 
+    made. N number of points each above and below the center. Therefore, the
+    total number of points is 101.
+    
+    Example: plot_angle(center=(0,0), angle=-10, N=50)
+    will plot the EDP around the major arm, probably along the bilayer normal.
+    
+    step is the step size in Angstrom in x.
     """
     x, z = center
-    if angle==0:
-      xpoints = x * np.ones(2*N+1)
-      
-    slope = 1 / tan(angle)
+    N = length/stepsize + 1
+    angle = angle*pi/180
     
-    intercept = z - slope*x
-    step = 0.2
-    x0 = x - step*N
-    x1 = x + step*N
-    xpoints = np.linspace(x0, x1, 2*N+1)
-    zpoints = slope * xpoints + intercept
-    self.plot_1D_edp(xpoints, zpoints)
+    # If angle is zero, the slope is infinite. In this case, x is constant.
+    if angle==0:
+      xpoints = x * np.ones(N)
+      zpoints = np.linspace(z-length/2, z+length/2, N)
+    else:
+      slope = 1 / tan(angle)
+      intercept = z - slope*x
+      xpoints = np.linspace(x-length*sin(angle)/2, x+length*sin(angle)/2, N)
+      zpoints = slope * xpoints + intercept
+    self.plot_1D_edp(xpoints, zpoints, center)
   
-  def plot_from_to(self, start, end, N=100): 
+  def plot_line(self, start, end, N=100): 
     """
     Plot Fourier-reconstructed EDP along a line connecting the start and end points
     N: number of points on which ED gets calculated
@@ -631,9 +639,9 @@ class BaseRipple(object):
     x1, z1 = end
     xpoints = np.linspace(x0, x1, N)
     zpoints = np.linspace(z0, z1, N)
-    self.plot_1D_edp(xpoints, zpoints)
+    self.plot_1D_edp(xpoints, zpoints, start)
     
-  def plot_1D_edp(self, xpoints, zpoints):
+  def plot_1D_edp(self, xpoints, zpoints, (x0,z0)):
     """
     Plot Fourier-reconstructed EDP at the points specified by xpoints and
     zpoints arrays.
@@ -643,7 +651,7 @@ class BaseRipple(object):
     self._set_qxqz(self.h, self.k)
     for x, z in zip(xpoints, zpoints):
       tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
-      dist = np.sqrt((x-x0)**2 + (z-z0)**2)
+      dist = np.sign(z-z0)*np.sqrt((x-x0)**2 + (z-z0)**2)
       rho.append([dist, tmp.sum(axis=0)])
     rho = np.array(rho, float)
     X = rho[:,0]
