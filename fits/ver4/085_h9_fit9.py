@@ -41,10 +41,10 @@ if __name__ == "__main__":
   m1g.edp_par['psi_minor'].vary = False
   m1g.link_psi = True
   m1g.fit_edp()
-  m1g.export_model_F("fit10_F.txt")
-  m1g.export_model_I("fit10_I.txt")
-  m1g.export_2D_edp("fit10_2D_edp.txt")
-  m1g.export_params("fit10_params.txt")
-  m1g.export_angle("fit10_1D_major.txt", center=(0,0), angle=-11.8, length=80, stepsize=0.1)
-  m1g.export_angle("fit10_1D_minor.txt", center=(72.5,0), angle=27.1, length=80, stepsize=0.1)
+  m1g.export_model_F("fit9_F.txt")
+  m1g.export_model_I("fit9_I.txt")
+  m1g.export_2D_edp("fit9_2D_edp.txt")
+  m1g.export_params("fit9_params.txt")
+  m1g.export_angle("fit9_1D_major.txt", center=(0,0), angle=-11.8, length=100, stepsize=0.1)
+  m1g.export_angle("fit9_1D_minor.txt", center=(72.5,0), angle=27.1, length=100, stepsize=0.1)
   m1g.report_edp()   

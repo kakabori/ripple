@@ -1,0 +1,35 @@
+chisqr= 19457.698254
+D= 57.800000
+lambda_r= 145.000000
+gamma= 1.714000
+
+[[Variables]]
+     A:                22.134453 +/- 0.730106 (3.30%) initial =  25.000000
+     Z_H1:             18.088792 +/- 0.359192 (1.99%) initial =  20.000000
+     Z_H2:             20.023166 +/- 0.303017 (1.51%) initial =  20.000000
+     common_scale:     1.709394 +/- 0.136462 (7.98%) initial =  3.000000
+     f1:               0.776099 +/- 0.072376 (9.33%) initial =  1.500000
+     f2:              -6.055417 +/- 1.652738 (27.29%) initial = -20.000000
+     psi:              0.183094 +/- 0.027283 (14.90%) initial =  0.100000
+     rho_H1:          fixed
+     rho_H2:          fixed
+     rho_M:           fixed
+     sigma_H1:        fixed
+     sigma_H2:        fixed
+     sigma_M:         fixed
+     x0:               92.632781 +/- 3.771294 (4.07%) initial =  90.000000
+[[Correlations]] (unreported correlations are <  0.100)
+    C(A, f2)                     = -0.694 
+    C(common_scale, f1)          = -0.693 
+    C(Z_H1, psi)                 =  0.588 
+    C(f1, f2)                    = -0.540 
+    C(f1, x0)                    =  0.483 
+    C(Z_H1, Z_H2)                = -0.373 
+    C(common_scale, x0)          = -0.332 
+    C(Z_H1, common_scale)        = -0.297 
+    C(A, common_scale)           =  0.286 
+    C(f1, psi)                   = -0.234 
+    C(f2, x0)                    = -0.197 
+    C(psi, x0)                   = -0.179 
+    C(A, Z_H2)                   = -0.174 
+    C(A, x0)                     =  0.165 

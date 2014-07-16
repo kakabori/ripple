@@ -13,6 +13,7 @@ m2g = M2G(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714,
           rho_M=10.91, sigma_M=1.83, psi=0.1, common_scale=3)
 #m2g.set_combined_peaks(combined)
 #m2g.fit_lattice()
+m2g.edp_par['f1'].vary = True
 m2g.edp_par['f2'].vary = True
 m2g.edp_par['rho_H1'].vary = False
 m2g.edp_par['sigma_H1'].vary = False
@@ -21,21 +22,11 @@ m2g.edp_par['sigma_H2'].vary = False
 m2g.edp_par['rho_M'].vary = False
 m2g.edp_par['sigma_M'].vary = False
 m2g.fit_edp()
-
-m2g.edp_par['rho_H1'].vary = True
-m2g.edp_par['rho_H2'].vary = True
-m2g.edp_par['rho_M'].vary = True
-m2g.fit_edp()
-
-m2g.edp_par['sigma_H1'].vary = True
-m2g.edp_par['sigma_H2'].vary = True
-m2g.edp_par['sigma_M'].vary = True
-m2g.fit_edp()
   
 m2g.report_edp()
-m2g.export_model_F("fit7_F.txt")
-m2g.export_model_I("fit7_I.txt")
-m2g.export_2D_edp("fit7_2D_edp.txt")
-m2g.export_params("fit7_params.txt")
-m2g.export_angle("fit7_1D_major.txt", center=(0,0), angle=-11.8, length=100, stepsize=0.1)
-m2g.export_angle("fit7_1D_minor.txt", center=(72.5,0), angle=27.1, length=100, stepsize=0.1)
+m2g.export_model_F("fit3_F.txt")
+m2g.export_model_I("fit3_I.txt")
+m2g.export_2D_edp("fit3_2D_edp.txt")
+m2g.export_params("fit3_params.txt")
+m2g.export_angle("fit3_1D_major.txt", center=(0,0), angle=-11.8, length=100, stepsize=0.1)
+m2g.export_angle("fit3_1D_minor.txt", center=(72.5,0), angle=27.1, length=100, stepsize=0.1)
