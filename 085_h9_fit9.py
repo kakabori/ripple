@@ -5,11 +5,20 @@ from ripintensity import *
 ###############################################################################
 if __name__ == "__main__":
   # read data to be fitted
-  infilename = 'intensity/WackWebb.dat'
+  infilename = 'intensity/WackWebb2.dat'
   h, k, q, I, sigma, combined = read_data_5_columns(infilename)
 
 ###############################################################################
   # Work on M1G
+#  m1g = M1G(h, k, q, I, sigma, D=57.94, lambda_r=141.7, gamma=1.717,
+#            x0=115, A=24, f1=0.7, f2=-10, 
+#            rho_H_major=10.77, rho_H_minor=10.77,
+#            Z_H_major=21, Z_H_minor=21,
+#            sigma_H_major=3.43, sigma_H_minor=3.43,
+#            rho_M_major=9.23, rho_M_minor=9.23,
+#            sigma_M_major=1.67, sigma_M_minor=1.67,
+#            psi_major=0.3, psi_minor=0.3,
+#            common_scale=3)
   m1g = M1G(h, k, q, I, sigma, D=57.94, lambda_r=141.7, gamma=1.717,
             x0=103, A=19, f1=0.6, f2=-1, 
             rho_H_major=10.77, rho_H_minor=10.77,
