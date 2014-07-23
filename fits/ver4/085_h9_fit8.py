@@ -11,7 +11,7 @@ if __name__ == "__main__":
 ###############################################################################
   # Work on M1G
   m1g = M1G(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714,
-            x0=110.5, A=25.78, f1=0.8, f2=0, 
+            x0=118, A=24, f1=0.7, f2=-11, 
             rho_H_major=10.77, rho_H_minor=10.77,
             Z_H_major=20.08, Z_H_minor=20.08,
             sigma_H_major=3.43, sigma_H_minor=3.43,
