@@ -126,3 +126,21 @@ m2g.phase[(m2g.h==1)&(m2g.k==3)] *= -1
 m2g.phase[(m2g.h==3)&(m2g.k==0)] *= -1
 m2g.phase[(m2g.h==6)&(m2g.k==0)] *= -1
 m2g.phase[(m2g.h==9)&(m2g.k==0)] *= -1
+# Largest change
+m2g.phase[(m2g.h==1)&(m2g.k==3)] *= -1
+m2g.phase[(m2g.h==3)&(m2g.k==0)] *= -1
+m2g.phase[(m2g.h==6)&(m2g.k==0)] *= -1
+m2g.phase[(m2g.h==6)&(m2g.k==1)] *= -1
+m2g.phase[(m2g.h==6)&(m2g.k==3)] *= -1
+m2g.phase[(m2g.h==6)&(m2g.k==4)] *= -1
+m2g.phase[(m2g.h==9)&(m2g.k==0)] *= -1
+m2g.export_2D_edp("fit22_2D_edp.txt")
+m2g.export_angle("fit22_1D_major.txt", center=(0,0), angle=-11.8, length=100, stepsize=0.1)
+m2g.export_angle("fit22_1D_minor.txt", center=(72.5,0), angle=27.1, length=100, stepsize=0.1)
+m2g.phase[(m2g.h==1)&(m2g.k==3)] *= -1
+m2g.phase[(m2g.h==3)&(m2g.k==0)] *= -1
+m2g.phase[(m2g.h==6)&(m2g.k==0)] *= -1
+m2g.phase[(m2g.h==6)&(m2g.k==1)] *= -1
+m2g.phase[(m2g.h==6)&(m2g.k==3)] *= -1
+m2g.phase[(m2g.h==6)&(m2g.k==4)] *= -1
+m2g.phase[(m2g.h==9)&(m2g.k==0)] *= -1
