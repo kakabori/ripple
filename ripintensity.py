@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from lmfit import minimize, Parameters
 import lmfit
 from scipy import ndimage
+import math
 
 # A module-level global variable
 wavelength = 1.175
@@ -106,7 +107,7 @@ def read_data_5_columns(filename="ripple_082-085.dat"):
   while True:
     s = fileobj.readline()
     if s.startswith('#'):
-      print(s)
+      print(s),
       continue
     elif s.startswith('h'):
       break
@@ -114,6 +115,7 @@ def read_data_5_columns(filename="ripple_082-085.dat"):
       print("Any comments (including an empty line) should start with #.")
       print("Please fix your input file.")
       sys.exit(1)
+  print("")
   
   # Go through data points  
   hl = []; kl = []; ql = []; Il = []; sl =[]; combl = []
@@ -149,7 +151,6 @@ def nonblank_lines(f):
     line = l.rstrip()
     if line:
       yield line
-  
 
 ###############################################################################
 class BaseRipple(object):
@@ -184,6 +185,7 @@ class BaseRipple(object):
     self.latt_par.add('gamma', value=gamma, vary=True)
     self.mask = np.ones(self.h.size, dtype=bool)
     self.comb_peaks = CombinedPeaks()
+    self._set_qxqz()
 
   def set_combined_peaks(self, comb):
     """
@@ -221,6 +223,7 @@ class BaseRipple(object):
     model method needs to be defined in the subclasses
     """
     self.phase = np.sign(self._model_F())
+    self.phase = self.phase.astype(int)
        
   def apply_Lorentz_correction(self, I):
     """
@@ -231,7 +234,6 @@ class BaseRipple(object):
     """
     global wavelength
     ret = np.array(I)
-    self._set_qxqz(self.h, self.k)
     ret[self.k==0] = ret[self.k==0] * self.qz[self.k==0]
     ret[self.k!=0] = ret[self.k!=0] / wavelength / self.qz[self.k!=0] * 4 * \
                    np.pi * np.pi * np.absolute(self.qx[self.k!=0])
@@ -245,7 +247,6 @@ class BaseRipple(object):
     """
     global wavelength
     ret = np.array(I)
-    self._set_qxqz(self.h, self.k)
     ret[self.k==0] = ret[self.k==0] / self.qz[self.k==0]
     ret[self.k!=0] = ret[self.k!=0] * wavelength * self.qz[self.k!=0] / 4 / \
                    np.pi / np.pi / np.absolute(self.qx[self.k!=0])
@@ -256,7 +257,6 @@ class BaseRipple(object):
     Show the model form factor along with the experimental one, which is 
     normalized at (h=1,k=0).
     """
-    self._set_qxqz(self.h, self.k)
     model_F = self._model_F()
     exp_F = self.F
     # exp_F is normalized at (h=1,k=0) peak
@@ -272,7 +272,6 @@ class BaseRipple(object):
     Show the model observed intensity along with the experimental I. Need a model
     method to call, which should be implemented in a derived class.
     """
-    self._set_qxqz(self.h, self.k)
     chi_square = ((self._model_intrinsic_I()-self.I) / self.sigma) ** 2
     print(" h  k     qx     qz      q      model          I     sigma     chi^2")
     for a, b, c, d, e, f, g, h, i in \
@@ -336,7 +335,7 @@ class BaseRipple(object):
     gamma = self.latt_par['gamma'].value
     return 2*np.pi*(self.h/D - self.k/lambda_r/np.tan(gamma))
   
-  def _set_qxqz(self, h, k):
+  def _set_qxqz(self, h=None, k=None):
     """
     Set qx and qz arrays with the value of D, lambda_r, and gamma, given
     lists of h and k indicies.
@@ -344,6 +343,10 @@ class BaseRipple(object):
     D = self.latt_par['D'].value
     lambda_r = self.latt_par['lambda_r'].value
     gamma = self.latt_par['gamma'].value
+    if h is None:
+      h = self.h
+    if k is None:
+      k = self.k
     self.qx = 2*np.pi*k/lambda_r
     self.qz = 2*np.pi*(h/D - k/lambda_r/np.tan(gamma))
     
@@ -440,7 +443,6 @@ class BaseRipple(object):
     rho_xz = []
     xgrid = np.linspace(xmin, xmax, num=N)
     zgrid = np.linspace(zmin, zmax, num=N)
-    self._set_qxqz(self.h, self.k)
     exp_F = self.F
     for x in xgrid:
       for z in zgrid:
@@ -460,7 +462,6 @@ class BaseRipple(object):
     
     outfilename: output file name
     """
-    self._set_qxqz(self.h, self.k)
     model_F = self._model_F()
     exp_F = self.F
     # exp_F is normalized at (h=1,k=0) peak
@@ -477,7 +478,6 @@ class BaseRipple(object):
     Export the observed intensity calculated from a model as an ASCII file 
     consisting of nine columns.
     """
-    self._set_qxqz(self.h, self.k)
     chi_square = ((self._model_intrinsic_I()-self.I) / self.sigma) ** 2
     with open(outfilename, 'w') as ff:
       ff.write(" h  k     qx     qz      q    I_model   I_exp  sigma   chi^2\n")
@@ -504,7 +504,6 @@ class BaseRipple(object):
     rho_xz = []
     xgrid = np.linspace(xmin, xmax, num=N)
     zgrid = np.linspace(zmin, zmax, num=N)  
-    self._set_qxqz(self.h, self.k)
     for x in xgrid:
       for z in zgrid:
         tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
@@ -526,7 +525,6 @@ class BaseRipple(object):
     rho_xz = []
     xgrid = np.linspace(xmin, xmax, num=N)
     zgrid = np.linspace(zmin, zmax, num=N)  
-    self._set_qxqz(self.h, self.k)
     F = self._model_F()
     for x in xgrid:
       for z in zgrid:
@@ -557,7 +555,6 @@ class BaseRipple(object):
     rho_xz = []
     xgrid = np.linspace(xmin, xmax, num=N)
     zgrid = np.linspace(zmin, zmax, num=N)  
-    self._set_qxqz(self.h, self.k)
     for x in xgrid:
       for z in zgrid:
         tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
@@ -576,13 +573,18 @@ class BaseRipple(object):
     Plot along a line making an angle with respect to the stacking z direction. 
     Positive angle means the line is tilted in CW direction from the z-axis in 
     the x-z plane. center specifies about what position the plot should be 
-    made. N number of points each above and below the center. Therefore, the
-    total number of points is 101.
+    made. 
+	
+	  length: the total length, symmetric about center
+    stepsize: the step size in Angstrom in x.
     
-    Example: plot_angle(center=(0,0), angle=-10, N=50)
-    will plot the EDP around the major arm, probably along the bilayer normal.
+    Example: 
+	
+	  plot_angle(center=(0,0), angle=-10, length=60, stepsize = 1)
     
-    step is the step size in Angstrom in x.
+	  will plot the EDP about (x,z)=(0,0), along a line making 10 degrees
+	  in CCW from the z-axis, with +/-30 Angstrom above and below the
+	  center, calculated every Angstrom.
     """
     x, z = center
     N = length/stepsize + 1
@@ -601,8 +603,8 @@ class BaseRipple(object):
 	
   def export_angle(self, filename="1Dedp.dat", center=(0,0), angle=0, length=60, stepsize=0.5):
     """
-	angle is in degree
-	"""
+	  angle is in degree
+	  """
     x, z = center
     N = length/stepsize + 1
     angle = angle*pi/180
@@ -644,7 +646,6 @@ class BaseRipple(object):
     Call plt.show() or plt.show(block=False) to actually display the plot.
     """
     rho = []
-    self._set_qxqz(self.h, self.k)
     for x, z in zip(xpoints, zpoints):
       tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
       dist = np.sign(z-z0)*np.sqrt((x-x0)**2 + (z-z0)**2)
@@ -661,7 +662,6 @@ class BaseRipple(object):
     filename: output file name
     """
     rho = []
-    self._set_qxqz(self.h, self.k)
     for x, z in zip(xpoints, zpoints):
       tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
       dist = np.sign(z-z0)*np.sqrt((x-x0)**2 + (z-z0)**2)
@@ -679,7 +679,6 @@ class BaseRipple(object):
     x1, z1 = end
     xpoints = np.linspace(x0, x1, N)
     zpoints = np.linspace(z0, z1, N)
-    self._set_qxqz(self.h, self.k)
     for x, z in zip(xpoints, zpoints):
       tmp = self._model_F() * np.cos(self.qx*x+self.qz*z)
       dist = np.sqrt((x-x0)**2 + (z-z0)**2)
@@ -689,7 +688,105 @@ class BaseRipple(object):
     Y = rho[:,1]
     plt.figure()
     plt.plot(X, Y)
-              
+  
+  def export_phases(self, filename):
+    """
+    Export an ASCII file containing the phases that reflect whatever phases
+    the object has, which are not necessarily the same as
+    the phases predicted by the model.
+    """
+    with open(filename, 'w') as f:
+      f.write("h k phase")
+      for a, b, c in zip(self.h, self.k, self.phase):
+        f.write("{0: 1d} {1: 1d} {2: 1d}\n".format(a, b, c))
+    
+  def export_headgroup_positions(self, filename):
+    """
+    Export an ASCII file containing headgroup positions in both lower
+    and upper leaflets. The first column is for x, the second for
+    lower leaflet, and the third for upper leaflet. This method assumes
+    that headgroups have the maximum electron density.    
+    """
+    lambda_r = self.latt_par['lambda_r'].value
+    stepsize = 1
+    xmin, xmax = -lambda_r, lambda_r
+    length = xmax - xmin
+    x_array = np.linspace(xmin, xmax, int(math.ceil(length)/stepsize+1))
+    z_low_list = []
+    z_up_list = []
+    for x in x_array:
+      z_low, z_up = self.find_headgroup(x)
+      z_low_list.append(z_low)
+      z_up_list.append(z_up)
+    with open(filename, 'w') as f:
+      f.write("x lower upper\n")
+      for a, b, c in zip(x_array, z_low_list, z_up_list):
+        f.write("{0: 3.1f} {1: 3.1f} {2: 3.1f}\n".format(a, b, c))
+      
+  
+  def find_headgroup(self, x):
+    """
+    Return the z position of maximum electron density along a vertical line
+    at x. For a normal EDP, this should correspond to the headgroup position.
+    """
+    D = self.latt_par['D'].value
+    lambda_r = self.latt_par['lambda_r'].value
+    xM = self.edp_par['x0'].value
+    A = self.edp_par['A'].value
+    z0 = self.where_in_sawtooth(x)
+    # D*10+1 is the number of points, every 0.1 Angstrom
+    z_lower = np.linspace(z0-D/2, z0, D/2*10+1)
+    z_upper = np.linspace(z0, z0+D/2, D/2*10+1) 
+    x_array = np.zeros(D/2*10+1) + x
+    edp_lower = self.get_electron_density(x_array, z_lower)
+    edp_upper = self.get_electron_density(x_array, z_upper)
+    return z_lower[edp_lower.argmax()], z_upper[edp_upper.argmax()]
+  
+  def get_electron_density(self, x_array, z_array):
+    """
+    Return electron density calculated at points specified by 
+    x_array and z_array
+    """
+    if x_array.size != z_array.size:
+      print("length of x must be equal to length of z")
+      return
+    tmp = np.zeros(x_array.size)
+    for F, qx, qz in zip(self.phase*self.F, self.qx, self.qz):
+      tmp = tmp + F * cos(qx*x_array+qz*z_array)
+    return tmp
+  
+  def vertical_plot(self, x, zmin=-40, zmax=40, stepsize=0.5):
+    """
+    Create a vertical plot of 2D EDP at input x
+    """
+    if zmin > zmax:
+      zmin, zmax = zmax, zmin
+    length = zmax - zmin
+    num_point = length/stepsize + 1
+    x_array = np.zeros(num_point) + x
+    z_array = np.linspace(zmin, zmax, num_point)
+    edp_array = self.get_electron_density(x_array, z_array)
+    plt.figure()
+    plt.plot(z_array, edp_array)
+    plt.show(block=False)
+    return z_array, edp_array
+    
+  def horizontal_plot(self, z, xmin=-100, xmax=100, stepsize=0.5):
+    """
+    Create a horizontal plot of 2D EDP at input z
+    """
+    if xmin > xmax:
+      xmin, xmax = xmax, xmin
+    length = xmax - xmin
+    num_point = length/stepsize + 1
+    x_array = np.linspace(xmin, xmax, num_point)
+    z_array = np.zeros(num_point) + z
+    edp_array = self.get_electron_density(x_array, z_array)
+    plt.figure()
+    plt.plot(x_array, edp_array)
+    plt.show(block=False)
+    return x_array, edp_array
+  
 ###############################################################################
 class Sawtooth(BaseRipple):
   def __init__(self, h, k, q, I, sigma, D=57.8, lambda_r=145, gamma=1.71, 
@@ -735,7 +832,23 @@ class Sawtooth(BaseRipple):
     lr = self.latt_par['lambda_r'].value
     w = 0.5 * (self.qx*x0 + self.qz*A)
     return 2*np.cos(w)/lr
-
+  
+  def where_in_sawtooth(self, x):
+    xM = self.edp_par['x0'].value
+    A = self.edp_par['A'].value
+    lr = self.latt_par['lambda_r'].value    
+    return where_in_sawtooth(np.array([x]), lr, A, xM)
+    
+def where_in_sawtooth(x, lambda_r, A, xM):
+  while (x<-lambda_r/2).any() or (x>lambda_r/2).any():
+    x[x<-lambda_r/2] = x[x<-lambda_r/2] + lambda_r
+    x[x>lambda_r/2] = x[x>lambda_r/2] - lambda_r    
+  z = np.zeros(x.size)
+  z[x<-xM/2] = -A * (x[x<-xM/2] + lambda_r/2) / (lambda_r - xM)
+  z[x>xM/2] = -A * (x[x>xM/2] - lambda_r/2) / (lambda_r - xM)
+  z[~((x<-xM/2)|(x>xM/2))] = A * x[~((x<-xM/2)|(x>xM/2))] / xM
+  return z
+    
 ###############################################################################
 class SDF(Sawtooth):
   def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 

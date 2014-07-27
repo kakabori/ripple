@@ -1,3 +1,8 @@
+"""
+Fit unoriented Wack and Webb data with M1G model. 
+Relative uncertainties are taken to be the same as our measured ones.
+"""
+
 from ripintensity import *
 
 ###############################################################################
@@ -41,12 +46,12 @@ if __name__ == "__main__":
   m1g.edp_par['psi_minor'].vary = False
   m1g.link_psi = True
   m1g.fit_edp()
-  m1g.export_model_F("WackWebb2_F.txt")
-  m1g.export_model_I("WackWebb2_I.txt")
-  m1g.export_2D_edp("WackWebb2_2D_edp.txt")
-  m1g.export_params("WackWebb2_params.txt")
-  m1g.export_angle("WackWebb2_1D_major.txt", center=(0,0), angle=-11.8, length=100, stepsize=0.1)
-  m1g.export_angle("WackWebb2_1D_minor.txt", center=(70.85,0), angle=27.1, length=100, stepsize=0.1)
+  m1g.export_model_F("fits/WackWebb2_F.txt")
+  m1g.export_model_I("fits/WackWebb2_I.txt")
+  m1g.export_2D_edp("fits/WackWebb2_2D_edp.txt")
+  m1g.export_params("fits/WackWebb2_params.txt")
+  m1g.export_angle("fits/WackWebb2_1D_major.txt", center=(0,0), angle=-11.8, length=100, stepsize=0.1)
+  m1g.export_angle("fits/WackWebb2_1D_minor.txt", center=(70.85,0), angle=27.1, length=100, stepsize=0.1)
   m1g.report_edp()  
   
 ###############################################################################
