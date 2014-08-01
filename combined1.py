@@ -1,3 +1,7 @@
+""" 
+EDP created based on the phases from Fit5 but with some orders reversed
+"""
+
 from ripintensity import *
 import copy
 

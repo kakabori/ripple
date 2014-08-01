@@ -713,21 +713,26 @@ class BaseRipple(object):
     length = xmax - xmin
     x_array = np.linspace(xmin, xmax, int(math.ceil(length)/stepsize+1))
     z_low_list = []
+    ed_low_list = []
     z_up_list = []
+    ed_up_list = []
     for x in x_array:
-      z_low, z_up = self.find_headgroup(x)
+      z_low, ed_low, z_up, ed_up = self.find_headgroup(x)
       z_low_list.append(z_low)
+      ed_low_list.append(ed_low)
       z_up_list.append(z_up)
+      ed_up_list.append(ed_up)
     with open(filename, 'w') as f:
-      f.write("x lower upper\n")
-      for a, b, c in zip(x_array, z_low_list, z_up_list):
-        f.write("{0: 3.1f} {1: 3.1f} {2: 3.1f}\n".format(a, b, c))
+      f.write("x z_lower ED_lower z_upper ED_upper\n")
+      for a, b, c, d, e in zip(x_array, z_low_list, ed_low_list, z_up_list, ed_up_list):
+        f.write("{0: 3.1f} {1: 3.1f} {2: 6.1f} {3: 3.1f} {4: 6.1f}\n".format(a, b, c, d, e))
       
   
   def find_headgroup(self, x):
     """
     Return the z position of maximum electron density along a vertical line
-    at x. For a normal EDP, this should correspond to the headgroup position.
+    at x and corresponding electron density. For a normal EDP, this should 
+    correspond to the headgroup position.
     """
     D = self.latt_par['D'].value
     lambda_r = self.latt_par['lambda_r'].value
@@ -740,7 +745,8 @@ class BaseRipple(object):
     x_array = np.zeros(D/2*10+1) + x
     edp_lower = self.get_electron_density(x_array, z_lower)
     edp_upper = self.get_electron_density(x_array, z_upper)
-    return z_lower[edp_lower.argmax()], z_upper[edp_upper.argmax()]
+    return (z_lower[np.argmax(edp_lower)], np.amax(edp_lower), 
+            z_upper[np.argmax(edp_upper)], np.amax(edp_upper))
   
   def get_electron_density(self, x_array, z_array):
     """
