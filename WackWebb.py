@@ -49,6 +49,7 @@ m1g.fit_edp()
 #m1g.export_angle("fits/WackWebb_1D_major.txt", center=(0,0), angle=-11.8, length=100, stepsize=0.1)
 #m1g.export_angle("fits/WackWebb_1D_minor.txt", center=(70.85,0), angle=27.1, length=100, stepsize=0.1)
 m1g.export_headgroup_positions("fits/WackWebb_headgroup.txt")
+m1g.export_phases("fits/WackWebb_phases.txt")
 m1g.report_edp()  
   
 ###############################################################################

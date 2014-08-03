@@ -696,7 +696,7 @@ class BaseRipple(object):
     the phases predicted by the model.
     """
     with open(filename, 'w') as f:
-      f.write("h k phase")
+      f.write("h k phase\n")
       for a, b, c in zip(self.h, self.k, self.phase):
         f.write("{0: 1d} {1: 1d} {2: 1d}\n".format(a, b, c))
     

@@ -52,6 +52,7 @@ if __name__ == "__main__":
   m1g.export_params("fits/WackWebb2_params.txt")
   m1g.export_angle("fits/WackWebb2_1D_major.txt", center=(0,0), angle=-11.8, length=100, stepsize=0.1)
   m1g.export_angle("fits/WackWebb2_1D_minor.txt", center=(70.85,0), angle=27.1, length=100, stepsize=0.1)
+  m1g.export_phases("fits/WackWebb2_phases.txt")
   m1g.report_edp()  
   
 ###############################################################################

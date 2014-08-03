@@ -43,4 +43,5 @@ m2g.phase[(m2g.h==3)&(m2g.k==0)] *= -1
 #m2g.export_angle("fits/fit12_1D_major.txt", center=(0,0), angle=-11.8, length=100, stepsize=0.1)
 #m2g.export_angle("fits/fit12_1D_minor.txt", center=(72.5,0), angle=27.1, length=100, stepsize=0.1)
 m2g.export_headgroup_positions("fits/fit12_headgroup.txt")
+m2g.export_phases("fits/fit12_phases.txt")
 m2g.phase[(m2g.h==3)&(m2g.k==0)] *= -1
