@@ -1,5 +1,5 @@
 """ 
-EDP created based on the phases from Fit5 but with some orders reversed
+EDP created based on the phases from Fit5
 """
 
 from ripintensity import *
@@ -69,13 +69,8 @@ m2g.fit_edp()
 # Copy phases of m2g to tmp
 tmp.phase = m2g.phase
 
-# Now flip some of the phases
-tmp.phase[(tmp.h==3)&(tmp.k==0)] *= -1
-tmp.phase[(tmp.h==6)&(tmp.k==0)] *= -1
-tmp.phase[(tmp.h==6)&(tmp.k==1)] *= -1
-tmp.phase[(tmp.h==6)&(tmp.k==3)] *= -1
-tmp.phase[(tmp.h==6)&(tmp.k==4)] *= -1
-tmp.phase[(tmp.h==9)&(tmp.k==0)] *= -1
+# Flip the (3, 0) phase
+m2g.phase[(m2g.h==3)&(m2g.k==0)] *= -1
 
 tmp.export_phases("fits/combined1_phases.txt")
 tmp.export_model_F("fits/combined1_F.txt")
