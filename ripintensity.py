@@ -727,7 +727,27 @@ class BaseRipple(object):
       for a, b, c, d, e in zip(x_array, z_low_list, ed_low_list, z_up_list, ed_up_list):
         f.write("{0: 3.1f} {1: 3.1f} {2: 6.1f} {3: 3.1f} {4: 6.1f}\n".format(a, b, c, d, e))
       
-  
+  def export_methyl_positions(self, filename):
+    """
+    Export an ASCII file containing teminal methyl positions. 
+    This method assumes that terminal methyls have the minimum electron density.       
+    """
+    lambda_r = self.latt_par['lambda_r'].value
+    stepsize = 1
+    xmin, xmax = -lambda_r, lambda_r
+    length = xmax - xmin
+    x_array = np.linspace(xmin, xmax, int(math.ceil(length)/stepsize+1))
+    z_list = []
+    ed_list = []
+    for x in x_array:
+      z, ed = self.find_methyl(x)
+      z_list.append(z)
+      ed_list.append(ed)
+    with open(filename, 'w') as f:
+      f.write("x z ED\n")
+      for a, b, c in zip(x_array, z_list, ed_list):
+        f.write("{0: 3.1f} {1: 3.1f} {2: 6.1f}\n".format(a, b, c))    
+    
   def find_headgroup(self, x):
     """
     Return the z position of maximum electron density along a vertical line
@@ -735,9 +755,6 @@ class BaseRipple(object):
     correspond to the headgroup position.
     """
     D = self.latt_par['D'].value
-    lambda_r = self.latt_par['lambda_r'].value
-    xM = self.edp_par['x0'].value
-    A = self.edp_par['A'].value
     z0 = self.where_in_sawtooth(x)
     # D*10+1 is the number of points, every 0.1 Angstrom
     z_lower = np.linspace(z0-D/2, z0, D/2*10+1)
@@ -747,6 +764,19 @@ class BaseRipple(object):
     edp_upper = self.get_electron_density(x_array, z_upper)
     return (z_lower[np.argmax(edp_lower)], np.amax(edp_lower), 
             z_upper[np.argmax(edp_upper)], np.amax(edp_upper))
+  
+  def find_methyl(self, x):
+    """
+    Return the z position of minimum electron density along a vertical line
+    at x and corresponding electron density. For a normal EDP, this should
+    correspond to the terminal methyl group position.
+    """
+    z0 = self.where_in_sawtooth(x)
+    # +/-10 Angstrom from the sawtooth should be enough to find the mid-plane
+    z_array = np.linspace(z0-10, z0+10, 201)
+    x_array = np.zeros(201) + x
+    edp = self.get_electron_density(x_array, z_array)
+    return (z_array[np.argmin(edp)], np.amin(edp))
   
   def get_electron_density(self, x_array, z_array):
     """
