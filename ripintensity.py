@@ -154,8 +154,7 @@ def nonblank_lines(f):
 
 ###############################################################################
 class BaseRipple(object):
-  """ 
-  The base ripple class, which will be inherited by contour subclasses, which
+  """The base ripple class, which will be inherited by contour subclasses, which
   in turn will be inherited by transbilayer subclasses. This base class mainly
   deals with the ripple lattice parameters, namely, D, lambda_r, and gamma.
   Methods such as showing 1D and 2D edp are also implemented.
@@ -219,18 +218,14 @@ class BaseRipple(object):
     return self.mask[(self.h==h)&(self.k==k)]
   
   def _set_phase(self):
-    """
-    model method needs to be defined in the subclasses
-    """
+    """Model method needs to be defined in the subclasses"""
     self.phase = np.sign(self._model_F())
     self.phase = self.phase.astype(int)
        
   def apply_Lorentz_correction(self, I):
-    """
-    Apply the Lorentz correction to the input intensity and return it. 
-    Only display individual peaks, not combined ones.
+    """Apply the Lorentz correction to the input intensity and return it. 
     
-    I: observed intensity, which will be Lorentz corrected
+    I: observed intensity, which will be Lorentz corrected.
     """
     global wavelength
     ret = np.array(I)
@@ -240,10 +235,9 @@ class BaseRipple(object):
     return ret
     
   def apply_Lorentz_factor(self, I):
-    """
-    Apply the Lorentz factor to the input intensity and return it.
+    """Apply the Lorentz factor to the input intensity and return it.
     
-    I: form factor squared
+    I: form factor squared.
     """
     global wavelength
     ret = np.array(I)
@@ -253,8 +247,7 @@ class BaseRipple(object):
     return ret
   
   def report_model_F(self):
-    """
-    Show the model form factor along with the experimental one, which is 
+    """Show the model form factor along with the experimental one, which is 
     normalized at (h=1,k=0).
     """
     model_F = self._model_F()
@@ -431,29 +424,6 @@ class BaseRipple(object):
     """ 
     model = self.F_model()
     return model
-    
-  def export_2D_edp(self, filename="2Dedp.dat", xmin=-150, xmax=150, 
-                    zmin=-100, zmax=100, N=201):
-    """
-    Export the Fourier-reconstructed 2D electron density (ED) map as an ASCII 
-    file consisting of three columns, x, z, and ED. 
-    Calculate EDP at N points along x and N points along z. The units are in 
-    Angstrom.
-    """
-    rho_xz = []
-    xgrid = np.linspace(xmin, xmax, num=N)
-    zgrid = np.linspace(zmin, zmax, num=N)
-    exp_F = self.F
-    for x in xgrid:
-      for z in zgrid:
-        tmp = self.phase * exp_F * np.cos(self.qx*x+self.qz*z)
-        rho_xz.append([x, z, tmp.sum(axis=0)])
-    rho_xz = np.array(rho_xz, float)  
-    X, Y, Z= rho_xz[:,0], rho_xz[:,1], rho_xz[:,2]
-    with open(filename, 'w') as f:
-      f.write("x z ED\n")
-      for x, y, z in zip(X, Y, Z):
-        f.write("{0: 3.1f} {1: 3.1f} {2: }\n".format(x, y, z))
   
   def export_model_F(self, outfilename="best_fit_F.dat"):
     """
@@ -495,185 +465,189 @@ class BaseRipple(object):
       f.write("lambda_r={0: f}\n".format(self.latt_par['lambda_r'].value))
       f.write("gamma={0: f}\n\n".format(self.latt_par['gamma'].value))      
       f.write(lmfit.fit_report(self.edp_par))
+ 
+  def export_phases(self, filename):
+    """
+    Export an ASCII file containing the phases that reflect whatever phases
+    the object has, which are not necessarily the same as
+    the phases predicted by the model.
+    """
+    with open(filename, 'w') as f:
+      f.write("h k phase\n")
+      for a, b, c in zip(self.h, self.k, self.phase):
+        f.write("{0: 1d} {1: 1d} {2: 1d}\n".format(a, b, c))
+    
 
-  def plot_2D_edp(self, xmin=-150, xmax=150, zmin=-100, zmax=100, N=201):
-    """
-    Plot a 2D map of the electron density profile. Calculate
-    EDP at N points along x and N points along z. The units are in Angstrom.
-    """
-    rho_xz = []
-    xgrid = np.linspace(xmin, xmax, num=N)
-    zgrid = np.linspace(zmin, zmax, num=N)  
-    for x in xgrid:
-      for z in zgrid:
-        tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
-        rho_xz.append([x, z, tmp.sum(axis=0)])
-    rho_xz = np.array(rho_xz, float)  
-    X, Y, Z= rho_xz[:,0], rho_xz[:,1], rho_xz[:,2]
-    #Y = rho_xz[:,1]
-    #Z = rho_xz[:,2]
-    X.shape = (N, N)
-    Y.shape = (N, N)
-    Z.shape = (N, N)
-    plt.figure()
-    #plt.contourf(X, Y, Z)
-    rotate_Z = ndimage.rotate(Z, 90)
-    imgplot = plt.imshow(rotate_Z,extent=[-150,150,-100,100],cmap='gray')
-    return imgplot
-  
-  def plot_2D_model_edp(self, xmin=-150, xmax=150, zmin=-100, zmax=100, N=201):
-    rho_xz = []
-    xgrid = np.linspace(xmin, xmax, num=N)
-    zgrid = np.linspace(zmin, zmax, num=N)  
-    F = self._model_F()
-    for x in xgrid:
-      for z in zgrid:
-        tmp = F * np.cos(self.qx*x+self.qz*z)
-        rho_xz.append([x, z, tmp.sum(axis=0)])
-    rho_xz = np.array(rho_xz, float)  
-    X, Y, Z= rho_xz[:,0], rho_xz[:,1], rho_xz[:,2]
-    #Y = rho_xz[:,1]
-    #Z = rho_xz[:,2]
-    X.shape = (N, N)
-    Y.shape = (N, N)
-    Z.shape = (N, N)
-    plt.figure()
-    #plt.contourf(X, Y, Z)
-    rotate_Z = ndimage.rotate(Z, 90)
-    imgplot = plt.imshow(rotate_Z,extent=[-150,150,-100,100],cmap='gray')
-    return imgplot  
+
+
+###############################################################################
+class ElectronDensityMap(object):
+    """Implements electron density map (EDM) related methods. Normally,
+    this class will be used inside the BaseRipple class, and deals with
+    anything related to an electron density map. 
+    """      
+    def __init__(self):
+        pass
+    
+    def export_EDM(self, filename="EDM.dat", xmin=-150, xmax=150, zmin=-100, 
+                   zmax=100, N=201):
+        """Export the Fourier-reconstructed 2D electron density map (EDM) as an ASCII 
+        file consisting of three columns, x, z, and ED. 
+        Calculate ED at N points along x and N points along z. The units are in   
+        Angstrom.
+        """
+        X, Y, Z = self.calc_EDM(xmin, xmax, zmin, zmax, N, self.phase*self.F)
+        with open(filename, 'w') as f:
+            f.write("x z ED\n")
+            for x, y, z in zip(X, Y, Z):
+            f.write("{0: 3.1f} {1: 3.1f} {2: }\n".format(x, y, z))
+    
+    def plot_EDM(self, xmin=-150, xmax=150, zmin=-100, zmax=100, N=201):
+        """Plot a 2D map of the electron density profile. Calculate
+        EDP at N points along x and N points along z. The units are in Angstrom.
+        """
+        X, Y, Z = self.calc_EDM(xmin, xmax, zmin, zmax, N, self.phase*self.F)
+        X.shape = (N, N)
+        Y.shape = (N, N)
+        Z.shape = (N, N)
+        plt.figure()
+        rotate_Z = ndimage.rotate(Z, 90)
+        imgplot = plt.imshow(rotate_Z, extent=[-150,150,-100,100], cmap='gray')
+        return imgplot
+
+    def calc_EDM(self, xmin=-100, xmax=100, zmin=-100, zmax=100, N=201, F):
+        """Fourier-reconstruct a 2D map of the electron density profile and return
+        as Z on (X,Y) grids. 
+        Calculate EDP at N points along x and N points along z. 
+        The units are in Angstrom.
+    
+        output: X, Y, Z, each being numpy array
+        """
+        rho_xz = []
+        xgrid = np.linspace(xmin, xmax, num=N)
+        zgrid = np.linspace(zmin, zmax, num=N)  
+        for x in xgrid:
+            for z in zgrid:
+                tmp = F * np.cos(self.qx*x+self.qz*z)
+                rho_xz.append([x, z, tmp.sum(axis=0)])
+        rho_xz = np.array(rho_xz, float)  
+        X, Y, Z= rho_xz[:,0], rho_xz[:,1], rho_xz[:,2]
+        return X, Y, Z
             
-  def calc_2D_edp(self, xmin=-100, xmax=100, zmin=-100, zmax=100, N=201):
-    """
-    Fourier-reconstruct a 2D map of the electron density profile and return
-    as Z on (X,Y) grids. 
-    Calculate EDP at N points along x and N points along z. 
-    The units are in Angstrom.
-    
-    output: X, Y, Z, each being numpy array
-    """
-    rho_xz = []
-    xgrid = np.linspace(xmin, xmax, num=N)
-    zgrid = np.linspace(zmin, zmax, num=N)  
-    for x in xgrid:
-      for z in zgrid:
-        tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
-        rho_xz.append([x, z, tmp.sum(axis=0)])
-    rho_xz = np.array(rho_xz, float)  
-    X, Y, Z= rho_xz[:,0], rho_xz[:,1], rho_xz[:,2]
-    #Y = rho_xz[:,1]
-    #Z = rho_xz[:,2]
-    X.shape = (N, N)
-    Y.shape = (N, N)
-    Z.shape = (N, N)
-    return X, Y, Z
-  
-  def plot_angle(self, center=(0,0), angle=0, length=60, stepsize=0.5):
-    """
-    Plot along a line making an angle with respect to the stacking z direction. 
-    Positive angle means the line is tilted in CW direction from the z-axis in 
-    the x-z plane. center specifies about what position the plot should be 
-    made. 
-	
-	  length: the total length, symmetric about center
-    stepsize: the step size in Angstrom in x.
-    
-    Example: 
-	
-	  plot_angle(center=(0,0), angle=-10, length=60, stepsize = 1)
-    
-	  will plot the EDP about (x,z)=(0,0), along a line making 10 degrees
-	  in CCW from the z-axis, with +/-30 Angstrom above and below the
-	  center, calculated every Angstrom.
-    """
-    x, z = center
-    N = length/stepsize + 1
-    angle = angle*pi/180
-    
-    # If angle is zero, the slope is infinite. In this case, x is constant.
-    if angle==0:
-      xpoints = x * np.ones(N)
-      zpoints = np.linspace(z-length/2, z+length/2, N)
-    else:
-      slope = 1 / tan(angle)
-      intercept = z - slope*x
-      xpoints = np.linspace(x-length*sin(angle)/2, x+length*sin(angle)/2, N)
-      zpoints = slope * xpoints + intercept
-    self.plot_1D_edp(xpoints, zpoints, center)
-	
-  def export_angle(self, filename="1Dedp.dat", center=(0,0), angle=0, length=60, stepsize=0.5):
-    """
-	  angle is in degree
-	  """
-    x, z = center
-    N = length/stepsize + 1
-    angle = angle*pi/180
-    
-    # If angle is zero, the slope is infinite. In this case, x is constant.
-    if angle==0:
-      xpoints = x * np.ones(N)
-      zpoints = np.linspace(z-length/2, z+length/2, N)
-    else:
-      slope = 1 / tan(angle)
-      intercept = z - slope*x
-      xpoints = np.linspace(x-length*sin(angle)/2, x+length*sin(angle)/2, N)
-      zpoints = slope * xpoints + intercept
-    self.export_1D_edp(filename, xpoints, zpoints, center)
+    def plot_model_EDM(self, xmin=-150, xmax=150, zmin=-100, zmax=100, N=201):
+        X, Y, Z = self.calc_EDM(xmin, xmax, zmin, zmax, N, self._model_F())
+        X.shape = (N, N)
+        Y.shape = (N, N)
+        Z.shape = (N, N)
+        plt.figure()
+        rotate_Z = ndimage.rotate(Z, 90)
+        imgplot = plt.imshow(rotate_Z, extent=[-150,150,-100,100], cmap='gray')
+        return imgplot  
+            
 
+
+  def plot_EDP(self, center=(0,0), angle=0, length=60, stepsize=0.5):
+      """Plot EDP along a line making an angle with respect to the stacking z direction. 
+      Positive angle means the line is tilted in CW direction from the z-axis in 
+      the x-z plane. center specifies about what position the plot should be 
+      made. 
+	
+	    length: the total length, symmetric about center
+      stepsize: the step size in Angstrom in x.
+    
+      Example: 
+	
+	    plot_angle(center=(0,0), angle=-10, length=60, stepsize = 1)
+    
+	    will plot the EDP about (x,z)=(0,0), along a line making 10 degrees
+	    in CCW from the z-axis, with +/-30 Angstrom above and below the
+	    center, calculated every Angstrom.
+      """
+      x, z = center
+      N = length/stepsize + 1
+      angle = angle*pi/180
+    
+      # If angle is zero, the slope is infinite. In this case, x is constant.
+      if angle==0:
+          xpoints = x * np.ones(N)
+          zpoints = np.linspace(z-length/2, z+length/2, N)
+      else:
+          slope = 1 / tan(angle)
+          intercept = z - slope*x
+          xpoints = np.linspace(x-length*sin(angle)/2, x+length*sin(angle)/2, N)
+          zpoints = slope * xpoints + intercept
+      self._plot_EDP(xpoints, zpoints, center)
+
+  def _plot_EDP(self, xpoints, zpoints, (x0,z0)):
+      """Plot Fourier-reconstructed EDP at the points specified by xpoints and
+      zpoints arrays.
+      Call plt.show() or plt.show(block=False) to actually display the plot.
+      """
+      rho = []
+      for x, z in zip(xpoints, zpoints):
+          tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
+          dist = np.sign(z-z0)*np.sqrt((x-x0)**2 + (z-z0)**2)
+          rho.append([dist, tmp.sum(axis=0)])
+      rho = np.array(rho, float)
+      X = rho[:,0]
+      Y = rho[:,1]
+      plt.figure()
+      plt.plot(X, Y)
+      	
+  def export_EDP(self, filename="1Dedp.dat", center=(0,0), angle=0, length=60, stepsize=0.5):
+      """angle is in degree"""
+      x, z = center
+      N = length/stepsize + 1
+      angle = angle*pi/180
+    
+      # If angle is zero, the slope is infinite. In this case, x is constant.
+      if angle==0:
+          xpoints = x * np.ones(N)
+          zpoints = np.linspace(z-length/2, z+length/2, N)
+      else:
+          slope = 1 / tan(angle)
+          intercept = z - slope*x
+          xpoints = np.linspace(x-length*sin(angle)/2, x+length*sin(angle)/2, N)
+          zpoints = slope * xpoints + intercept
+      self._export_EDP(filename, xpoints, zpoints, center)
+
+
+
+  def _export_EDP(self, filename, xpoints, zpoints, (x0,z0)):
+      """Export the Fourier-reconstructed EDP."""
+      rho = []
+      for x, z in zip(xpoints, zpoints):
+          tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
+          dist = np.sign(z-z0)*np.sqrt((x-x0)**2 + (z-z0)**2)
+          rho.append([x, z, dist, tmp.sum(axis=0)])
+      rho = np.array(rho, float)
+      X, Z, DIST, EDP = rho[:,0], rho[:,1], rho[:,2], rho[:,3]
+      with open(filename, 'w') as f:
+          f.write("x z dist ED\n")
+          for x, z, dist, edp in zip(X, Z, DIST, EDP):
+              f.write("{0: 3.1f} {1: 3.1f} {2: 3.1f} {3: }\n".format(x, z, dist, edp))
+              
   def export_line(self, filename, start, end, N): 
-    x0, z0 = start
-    x1, z1 = end
-    xpoints = np.linspace(x0, x1, N)
-    zpoints = np.linspace(z0, z1, N)
-    self.export_1D_edp(filename, xpoints, zpoints, start)
+      x0, z0 = start
+      x1, z1 = end
+      xpoints = np.linspace(x0, x1, N)
+      zpoints = np.linspace(z0, z1, N)
+      self.export_1D_edp(filename, xpoints, zpoints, start)
 	
   def plot_line(self, start, end, N=100): 
-    """
-    Plot Fourier-reconstructed EDP along a line connecting the start and end points
-    N: number of points on which ED gets calculated
-    Call plt.show() or plt.show(block=False) to actually display the plot.
-    """
-    x0, z0 = start
-    x1, z1 = end
-    xpoints = np.linspace(x0, x1, N)
-    zpoints = np.linspace(z0, z1, N)
-    self.plot_1D_edp(xpoints, zpoints, start)
+      """Plot Fourier-reconstructed EDP along a line connecting the start and end points
+      N: number of points on which ED gets calculated
+      Call plt.show() or plt.show(block=False) to actually display the plot.
+      """
+      x0, z0 = start
+      x1, z1 = end
+      xpoints = np.linspace(x0, x1, N)
+      zpoints = np.linspace(z0, z1, N)
+      self.plot_1D_edp(xpoints, zpoints, start)
     
-  def plot_1D_edp(self, xpoints, zpoints, (x0,z0)):
-    """
-    Plot Fourier-reconstructed EDP at the points specified by xpoints and
-    zpoints arrays.
-    Call plt.show() or plt.show(block=False) to actually display the plot.
-    """
-    rho = []
-    for x, z in zip(xpoints, zpoints):
-      tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
-      dist = np.sign(z-z0)*np.sqrt((x-x0)**2 + (z-z0)**2)
-      rho.append([dist, tmp.sum(axis=0)])
-    rho = np.array(rho, float)
-    X = rho[:,0]
-    Y = rho[:,1]
-    plt.figure()
-    plt.plot(X, Y)
 
-  def export_1D_edp(self, filename, xpoints, zpoints, (x0,z0)):
-    """
-    Export the Fourier-reconstructed EDP.
-    filename: output file name
-    """
-    rho = []
-    for x, z in zip(xpoints, zpoints):
-      tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
-      dist = np.sign(z-z0)*np.sqrt((x-x0)**2 + (z-z0)**2)
-      rho.append([x, z, dist, tmp.sum(axis=0)])
-    rho = np.array(rho, float)
-    X, Z, DIST, EDP = rho[:,0], rho[:,1], rho[:,2], rho[:,3]
-    with open(filename, 'w') as f:
-      f.write("x z dist ED\n")
-      for x, z, dist, edp in zip(X, Z, DIST, EDP):
-        f.write("{0: 3.1f} {1: 3.1f} {2: 3.1f} {3: }\n".format(x, z, dist, edp))
-		
-  def plot_1D_model_edp(self, start=(-10,25), end=(30,-20), N=100):
+
+  def plot_model_EDP(self, start=(-10,25), end=(30,-20), N=100):
     rho = []
     x0, z0 = start
     x1, z1 = end
@@ -688,17 +662,6 @@ class BaseRipple(object):
     Y = rho[:,1]
     plt.figure()
     plt.plot(X, Y)
-  
-  def export_phases(self, filename):
-    """
-    Export an ASCII file containing the phases that reflect whatever phases
-    the object has, which are not necessarily the same as
-    the phases predicted by the model.
-    """
-    with open(filename, 'w') as f:
-      f.write("h k phase\n")
-      for a, b, c in zip(self.h, self.k, self.phase):
-        f.write("{0: 1d} {1: 1d} {2: 1d}\n".format(a, b, c))
     
   def export_headgroup_positions(self, filename):
     """
@@ -779,8 +742,7 @@ class BaseRipple(object):
     return (z_array[np.argmin(edp)], np.amin(edp))
   
   def get_electron_density(self, x_array, z_array):
-    """
-    Return electron density calculated at points specified by 
+    """Return electron density calculated at points specified by 
     x_array and z_array
     """
     if x_array.size != z_array.size:
@@ -822,7 +784,8 @@ class BaseRipple(object):
     plt.plot(x_array, edp_array)
     plt.show(block=False)
     return x_array, edp_array
-  
+    
+              
 ###############################################################################
 class Sawtooth(BaseRipple):
   def __init__(self, h, k, q, I, sigma, D=57.8, lambda_r=145, gamma=1.71, 
