@@ -157,8 +157,7 @@ class BaseRipple(object):
   """The base ripple class, which will be inherited by contour subclasses, which
   in turn will be inherited by transbilayer subclasses. This base class mainly
   deals with the ripple lattice parameters, namely, D, lambda_r, and gamma.
-  Methods such as showing 1D and 2D edp are also implemented.
-  
+
   h, k: ripple phase main and side peak index
   qx, qz, q: scattering vector (qx is approx. equal to qr)
   I: observed intensity of each peak, before geometric correction
@@ -185,6 +184,7 @@ class BaseRipple(object):
     self.mask = np.ones(self.h.size, dtype=bool)
     self.comb_peaks = CombinedPeaks()
     self._set_qxqz()
+    self.edm = ElectronDensityMap()
 
   def set_combined_peaks(self, comb):
     """
@@ -477,9 +477,81 @@ class BaseRipple(object):
       for a, b, c in zip(self.h, self.k, self.phase):
         f.write("{0: 1d} {1: 1d} {2: 1d}\n".format(a, b, c))
     
+  def export_EDM(self, filename="EDM.dat", xmin=150, xmax=150, zmin=-100,
+                 zmax=100, N=201):
+    """Export the Fourier-reconstructed 2D electron density map (EDM) as 
+    an ASCII file consisting of three columns, x, z, and ED. 
+    Calculate ED at N points along x and N points along z. The units are 
+    in Angstrom.
+    """
+    self.edm.plot_EDM(xmin, xmax, zmin, zmax, N, self.phase*self.F, filename)
+    
+  def plot_EDM(self, xmin=-150, xmax=150, zmin=-100, zmax=100, N=201):
+    """Plot an experimental 2D electron density map. Calculate
+    EDM on an N by N grid. The units are in Angstrom.
+    """    
+    self.edm.plot_EDM(xmin, xmax, zmin, zmax, N, self.phase*self.F)
 
+  def plot_model_EDM(self, xmin=-150, xmax=150, zmin=-100, zmax=100, N=201):
+    """Plot a model 2D electron density map. Calculate
+    EDM on an N by N grid. The units are in Angstrom.
+    """    
+    self.edm.plot_EDM(xmin, xmax, zmin, zmax, N, self._model_F())
 
+  def export_EDP(self, filename="EDP.dat", center=(0,0), angle=-10, 
+                 length=60, stepsize=0.5):
+    self.edm.plot_EDP_angle(center, angle, length, stepsize, self.phase*self.F, filename)
+  
+  def export_model_EDP(self, filename="model_EDP.dat", center=(0.0), angle=-10, 
+                       length=60, stepsize=0.5):
+    self.edm.plot_EDP_angle(center, angle, length, stepsize, self._model_F(), filename)
+  
+  def plot_EDP(self, center=(0,0), angle=-10, length=60, stepsize=0.5):
+    """Plot EDP along a line making an angle in degrees with respect to 
+    the stacking z direction. Positive angle means the line is tilted in 
+    the CW direction from the z-axis in the x-z plane. center specifies 
+    about what position the plot is made. 
+    Call plt.show() or plt.show(block=False) to actually display the plot.
+	
+	length: the total length in Angstrom, symmetric about center.
+    stepsize: the step size in Angstrom in x.
+    
+    Example: 
+	
+	plot_EDP(center=(0,0), angle=-10, length=60, stepsize=1)
+    
+	will plot the EDP about (x,z)=(0,0), along a line making 10 degrees
+	in CCW from the z-axis, with +/-30 Angstrom above and below the
+	center, calculated every Angstrom.
+    """  
+    self.edm.plot_EDP_angle(center, angle, length, stepsize, self.phase*self.F)
+    
+  def plot_model_EDP(self, center=(0,0), angle=0, length=60, stepsize=0.5):
+    self.edm.plot_EDP_angle(center, angle, length, stepsize, self._model_F())
+      
+  def export_headgroup_positions(self, filename="temp.txt"): 
+    """Export an ASCII file containing headgroup positions in both lower
+    and upper leaflets. The first column is for x, the second for
+    lower leaflet, and the third for upper leaflet. This method assumes
+    that headgroups have the maximum electron density.    
+    """
+    self.edm.export_headgroup_positions(self.latt_par['lambda_r'].value, 
+                                        self.latt_par['D'].value, 
+                                        self.edp_par['A'].value, 
+                                        self.edp_par['xM'].value, 
+                                        filename)
 
+  def export_methyl_positions(self, filename="temp.txt"):
+    """Export an ASCII file containing teminal methyl positions. 
+    This method assumes that terminal methyls have the minimum electron density.       
+    """
+    self.edm.export_methyl_positions(self.latt_par['lambda_r'].value, 
+                                     self.latt_par['D'].value, 
+                                     self.edp_par['A'].value, 
+                                     self.edp_par['xM'].value, 
+                                     filename)
+                                
+                                
 ###############################################################################
 class ElectronDensityMap(object):
     """Implements electron density map (EDM) related methods. Normally,
@@ -488,37 +560,26 @@ class ElectronDensityMap(object):
     """      
     def __init__(self):
         pass
-    
-    def export_EDM(self, filename="EDM.dat", xmin=-150, xmax=150, zmin=-100, 
-                   zmax=100, N=201):
-        """Export the Fourier-reconstructed 2D electron density map (EDM) as an ASCII 
-        file consisting of three columns, x, z, and ED. 
-        Calculate ED at N points along x and N points along z. The units are in   
-        Angstrom.
-        """
-        X, Y, Z = self.calc_EDM(xmin, xmax, zmin, zmax, N, self.phase*self.F)
-        with open(filename, 'w') as f:
-            f.write("x z ED\n")
-            for x, y, z in zip(X, Y, Z):
-            f.write("{0: 3.1f} {1: 3.1f} {2: }\n".format(x, y, z))
-    
-    def plot_EDM(self, xmin=-150, xmax=150, zmin=-100, zmax=100, N=201):
-        """Plot a 2D map of the electron density profile. Calculate
-        EDP at N points along x and N points along z. The units are in Angstrom.
-        """
-        X, Y, Z = self.calc_EDM(xmin, xmax, zmin, zmax, N, self.phase*self.F)
-        X.shape = (N, N)
-        Y.shape = (N, N)
-        Z.shape = (N, N)
-        plt.figure()
-        rotate_Z = ndimage.rotate(Z, 90)
-        imgplot = plt.imshow(rotate_Z, extent=[-150,150,-100,100], cmap='gray')
-        return imgplot
-
-    def calc_EDM(self, xmin=-100, xmax=100, zmin=-100, zmax=100, N=201, F):
+                   
+    def plot_EDM(self, xmin, xmax, zmin, zmax, N, F, filename=None):
+        X, Y, Z = self._calc_EDM(xmin, xmax, zmin, zmax, N, F)
+        if filename is None:
+            X.shape = (N, N)
+            Y.shape = (N, N)
+            Z.shape = (N, N)
+            plt.figure()
+            rotate_Z = ndimage.rotate(Z, 90)
+            imgplot = plt.imshow(rotate_Z, extent=[-150,150,-100,100], cmap='gray')
+            return imgplot            
+        else:
+            with open(filename, 'w') as f:
+                f.write("x z ED\n")
+                for x, y, z in zip(X, Y, Z):
+                    f.write("{0: 3.1f} {1: 3.1f} {2: }\n".format(x, y, z))
+                
+    def _calc_EDM(self, xmin, xmax, zmin, zmax, N, F):
         """Fourier-reconstruct a 2D map of the electron density profile and return
-        as Z on (X,Y) grids. 
-        Calculate EDP at N points along x and N points along z. 
+        as Z on (X,Y) grids. Calculate EDP at N points along x and N points along z. 
         The units are in Angstrom.
     
         output: X, Y, Z, each being numpy array
@@ -533,266 +594,134 @@ class ElectronDensityMap(object):
         rho_xz = np.array(rho_xz, float)  
         X, Y, Z= rho_xz[:,0], rho_xz[:,1], rho_xz[:,2]
         return X, Y, Z
+
+    def plot_EDP_endpoints(self, start, end, N, F, filename=None): 
+        """Plot an experimental EDP along a line connecting start 
+        and end, on N points. If filename is specified, export an
+        ASCII file instead.
+        """
+        xM, z0 = start
+        x1, z1 = end
+        xpoints = np.linspace(xM, x1, N)
+        zpoints = np.linspace(z0, z1, N)
+        self._plot_EDP(xpoints, zpoints, start, F, filename)
             
-    def plot_model_EDM(self, xmin=-150, xmax=150, zmin=-100, zmax=100, N=201):
-        X, Y, Z = self.calc_EDM(xmin, xmax, zmin, zmax, N, self._model_F())
-        X.shape = (N, N)
-        Y.shape = (N, N)
-        Z.shape = (N, N)
-        plt.figure()
-        rotate_Z = ndimage.rotate(Z, 90)
-        imgplot = plt.imshow(rotate_Z, extent=[-150,150,-100,100], cmap='gray')
-        return imgplot  
-            
-
-
-  def plot_EDP(self, center=(0,0), angle=0, length=60, stepsize=0.5):
-      """Plot EDP along a line making an angle with respect to the stacking z direction. 
-      Positive angle means the line is tilted in CW direction from the z-axis in 
-      the x-z plane. center specifies about what position the plot should be 
-      made. 
-	
-	    length: the total length, symmetric about center
-      stepsize: the step size in Angstrom in x.
+    def plot_EDP_angle(self, center, angle, length, stepsize, F, filename=None):
+        x, z = center
+        N = length/stepsize + 1
+        angle = angle*pi/180 
+        if angle==0:
+            # If angle is zero, the slope is infinite. 
+            # In this case, x is constant.
+            xpoints = x * np.ones(N)
+            zpoints = np.linspace(z-length/2, z+length/2, N)
+        else:
+            slope = 1 / tan(angle)
+            intercept = z - slope*x
+            xpoints = np.linspace(x-length*sin(angle)/2, x+length*sin(angle)/2, N)
+            zpoints = slope * xpoints + intercept    
+        self._plot_EDP(xpoints, zpoints, center, F, filename)     
     
-      Example: 
-	
-	    plot_angle(center=(0,0), angle=-10, length=60, stepsize = 1)
-    
-	    will plot the EDP about (x,z)=(0,0), along a line making 10 degrees
-	    in CCW from the z-axis, with +/-30 Angstrom above and below the
-	    center, calculated every Angstrom.
-      """
-      x, z = center
-      N = length/stepsize + 1
-      angle = angle*pi/180
-    
-      # If angle is zero, the slope is infinite. In this case, x is constant.
-      if angle==0:
-          xpoints = x * np.ones(N)
-          zpoints = np.linspace(z-length/2, z+length/2, N)
-      else:
-          slope = 1 / tan(angle)
-          intercept = z - slope*x
-          xpoints = np.linspace(x-length*sin(angle)/2, x+length*sin(angle)/2, N)
-          zpoints = slope * xpoints + intercept
-      self._plot_EDP(xpoints, zpoints, center)
-
-  def _plot_EDP(self, xpoints, zpoints, (x0,z0)):
-      """Plot Fourier-reconstructed EDP at the points specified by xpoints and
-      zpoints arrays.
-      Call plt.show() or plt.show(block=False) to actually display the plot.
-      """
-      rho = []
-      for x, z in zip(xpoints, zpoints):
-          tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
-          dist = np.sign(z-z0)*np.sqrt((x-x0)**2 + (z-z0)**2)
-          rho.append([dist, tmp.sum(axis=0)])
-      rho = np.array(rho, float)
-      X = rho[:,0]
-      Y = rho[:,1]
-      plt.figure()
-      plt.plot(X, Y)
-      	
-  def export_EDP(self, filename="1Dedp.dat", center=(0,0), angle=0, length=60, stepsize=0.5):
-      """angle is in degree"""
-      x, z = center
-      N = length/stepsize + 1
-      angle = angle*pi/180
-    
-      # If angle is zero, the slope is infinite. In this case, x is constant.
-      if angle==0:
-          xpoints = x * np.ones(N)
-          zpoints = np.linspace(z-length/2, z+length/2, N)
-      else:
-          slope = 1 / tan(angle)
-          intercept = z - slope*x
-          xpoints = np.linspace(x-length*sin(angle)/2, x+length*sin(angle)/2, N)
-          zpoints = slope * xpoints + intercept
-      self._export_EDP(filename, xpoints, zpoints, center)
-
-
-
-  def _export_EDP(self, filename, xpoints, zpoints, (x0,z0)):
-      """Export the Fourier-reconstructed EDP."""
-      rho = []
-      for x, z in zip(xpoints, zpoints):
-          tmp = self.phase * self.F * np.cos(self.qx*x+self.qz*z)
-          dist = np.sign(z-z0)*np.sqrt((x-x0)**2 + (z-z0)**2)
-          rho.append([x, z, dist, tmp.sum(axis=0)])
-      rho = np.array(rho, float)
-      X, Z, DIST, EDP = rho[:,0], rho[:,1], rho[:,2], rho[:,3]
-      with open(filename, 'w') as f:
-          f.write("x z dist ED\n")
-          for x, z, dist, edp in zip(X, Z, DIST, EDP):
-              f.write("{0: 3.1f} {1: 3.1f} {2: 3.1f} {3: }\n".format(x, z, dist, edp))
-              
-  def export_line(self, filename, start, end, N): 
-      x0, z0 = start
-      x1, z1 = end
-      xpoints = np.linspace(x0, x1, N)
-      zpoints = np.linspace(z0, z1, N)
-      self.export_1D_edp(filename, xpoints, zpoints, start)
-	
-  def plot_line(self, start, end, N=100): 
-      """Plot Fourier-reconstructed EDP along a line connecting the start and end points
-      N: number of points on which ED gets calculated
-      Call plt.show() or plt.show(block=False) to actually display the plot.
-      """
-      x0, z0 = start
-      x1, z1 = end
-      xpoints = np.linspace(x0, x1, N)
-      zpoints = np.linspace(z0, z1, N)
-      self.plot_1D_edp(xpoints, zpoints, start)
-    
-
-
-  def plot_model_EDP(self, start=(-10,25), end=(30,-20), N=100):
-    rho = []
-    x0, z0 = start
-    x1, z1 = end
-    xpoints = np.linspace(x0, x1, N)
-    zpoints = np.linspace(z0, z1, N)
-    for x, z in zip(xpoints, zpoints):
-      tmp = self._model_F() * np.cos(self.qx*x+self.qz*z)
-      dist = np.sqrt((x-x0)**2 + (z-z0)**2)
-      rho.append([dist, tmp.sum(axis=0)])
-    rho = np.array(rho, float)
-    X = rho[:,0]
-    Y = rho[:,1]
-    plt.figure()
-    plt.plot(X, Y)
-    
-  def export_headgroup_positions(self, filename):
-    """
-    Export an ASCII file containing headgroup positions in both lower
-    and upper leaflets. The first column is for x, the second for
-    lower leaflet, and the third for upper leaflet. This method assumes
-    that headgroups have the maximum electron density.    
-    """
-    lambda_r = self.latt_par['lambda_r'].value
-    stepsize = 1
-    xmin, xmax = -lambda_r, lambda_r
-    length = xmax - xmin
-    x_array = np.linspace(xmin, xmax, int(math.ceil(length)/stepsize+1))
-    z_low_list = []
-    ed_low_list = []
-    z_up_list = []
-    ed_up_list = []
-    for x in x_array:
-      z_low, ed_low, z_up, ed_up = self.find_headgroup(x)
-      z_low_list.append(z_low)
-      ed_low_list.append(ed_low)
-      z_up_list.append(z_up)
-      ed_up_list.append(ed_up)
-    with open(filename, 'w') as f:
-      f.write("x z_lower ED_lower z_upper ED_upper\n")
-      for a, b, c, d, e in zip(x_array, z_low_list, ed_low_list, z_up_list, ed_up_list):
-        f.write("{0: 3.1f} {1: 3.1f} {2: 6.1f} {3: 3.1f} {4: 6.1f}\n".format(a, b, c, d, e))
+    def _plot_EDP(self, xarray, zarray, center, F, filename):
+        X, Z, DIST, EDP = self._calc_EDP(xarray, zarray, center, F)
+        if filename is None:
+            plt.figure()
+            plt.plot(DIST, EDP)
+        else:
+            with open(filename, 'w') as f:
+                f.write("x z dist ED\n")
+                for x, z, dist, edp in zip(X, Z, DIST, EDP):
+                    f.write("{0: 3.1f} {1: 3.1f} {2: 3.1f} {3: }\n".format(x, z, dist, edp))
+        
+    def _calc_EDP(self, xpoints, zpoints, (xM,z0), F):
+        rho = []
+        for x, z in zip(xpoints, zpoints):
+            tmp = F * np.cos(self.qx*x+self.qz*z)
+            dist = np.sign(z-z0)*np.sqrt((x-xM)**2 + (z-z0)**2)
+            rho.append([x, z, dist, tmp.sum(axis=0)])
+        rho = np.array(rho, float)
+        X, Z, DIST, EDP = rho[:,0], rho[:,1], rho[:,2], rho[:,3]   
+        return X, Z, DIST, EDP     
+  
+    def export_headgroup_positions(self, lambda_r, D, A, xM, filename):
+        stepsize = 1
+        xmin, xmax = -lambda_r, lambda_r
+        length = xmax - xmin
+        x_array = np.linspace(xmin, xmax, int(math.ceil(length)/stepsize+1))
+        z_low_list, ed_low_list, z_up_list, ed_up_list = [], [], [], []
+        for x in x_array:
+            z_low, ed_low, z_up, ed_up = self.find_headgroup(x, lambda_r, D, A, xM)
+            z_low_list.append(z_low)
+            ed_low_list.append(ed_low)
+            z_up_list.append(z_up)
+            ed_up_list.append(ed_up)
+        with open(filename, 'w') as f:
+            f.write("x z_lower ED_lower z_upper ED_upper\n")
+            for a, b, c, d, e in zip(x_array, z_low_list, ed_low_list, z_up_list, ed_up_list):
+                f.write("{0: 3.1f} {1: 3.1f} {2: 6.1f} {3: 3.1f} {4: 6.1f}\n".format(a, b, c, d, e))
       
-  def export_methyl_positions(self, filename):
-    """
-    Export an ASCII file containing teminal methyl positions. 
-    This method assumes that terminal methyls have the minimum electron density.       
-    """
-    lambda_r = self.latt_par['lambda_r'].value
-    stepsize = 1
-    xmin, xmax = -lambda_r, lambda_r
-    length = xmax - xmin
-    x_array = np.linspace(xmin, xmax, int(math.ceil(length)/stepsize+1))
-    z_list = []
-    ed_list = []
-    for x in x_array:
-      z, ed = self.find_methyl(x)
-      z_list.append(z)
-      ed_list.append(ed)
-    with open(filename, 'w') as f:
-      f.write("x z ED\n")
-      for a, b, c in zip(x_array, z_list, ed_list):
-        f.write("{0: 3.1f} {1: 3.1f} {2: 6.1f}\n".format(a, b, c))    
+    def export_methyl_positions(self, lambda_r, D, A, xM, filename):
+        stepsize = 1
+        xmin, xmax = -lambda_r, lambda_r
+        length = xmax - xmin
+        x_array = np.linspace(xmin, xmax, int(math.ceil(length)/stepsize+1))
+        z_list, ed_list = [], []
+        for x in x_array:
+            z, ed = self.find_methyl(x, lambda_r, D, A, xM)
+            z_list.append(z)
+            ed_list.append(ed)
+        with open(filename, 'w') as f:
+            f.write("x z ED\n")
+            for a, b, c in zip(x_array, z_list, ed_list):
+                f.write("{0: 3.1f} {1: 3.1f} {2: 6.1f}\n".format(a, b, c))    
     
-  def find_headgroup(self, x):
-    """
-    Return the z position of maximum electron density along a vertical line
-    at x and corresponding electron density. For a normal EDP, this should 
-    correspond to the headgroup position.
-    """
-    D = self.latt_par['D'].value
-    z0 = self.where_in_sawtooth(x)
-    # D*10+1 is the number of points, every 0.1 Angstrom
-    z_lower = np.linspace(z0-D/2, z0, D/2*10+1)
-    z_upper = np.linspace(z0, z0+D/2, D/2*10+1) 
-    x_array = np.zeros(D/2*10+1) + x
-    edp_lower = self.get_electron_density(x_array, z_lower)
-    edp_upper = self.get_electron_density(x_array, z_upper)
-    return (z_lower[np.argmax(edp_lower)], np.amax(edp_lower), 
-            z_upper[np.argmax(edp_upper)], np.amax(edp_upper))
+    def find_headgroup(self, x, lambda_r, D, A, xM):
+        """Return the z position of maximum electron density along a vertical line
+        at x and corresponding electron density. For a normal EDP, this should 
+        correspond to the headgroup position.
+        """
+        z0 = where_in_sawtooth(x, lambda_r, A, xM)
+        # D*10+1 is the number of points, every 0.1 Angstrom
+        z_lower = np.linspace(z0-D/2, z0, D/2*10+1)
+        z_upper = np.linspace(z0, z0+D/2, D/2*10+1) 
+        x_array = np.zeros(D/2*10+1) + x
+        edp_lower = self._get_electron_density(x_array, z_lower)
+        edp_upper = self._get_electron_density(x_array, z_upper)
+        return (z_lower[np.argmax(edp_lower)], np.amax(edp_lower), 
+                z_upper[np.argmax(edp_upper)], np.amax(edp_upper))
   
-  def find_methyl(self, x):
-    """
-    Return the z position of minimum electron density along a vertical line
-    at x and corresponding electron density. For a normal EDP, this should
-    correspond to the terminal methyl group position.
-    """
-    z0 = self.where_in_sawtooth(x)
-    # +/-10 Angstrom from the sawtooth should be enough to find the mid-plane
-    z_array = np.linspace(z0-10, z0+10, 201)
-    x_array = np.zeros(201) + x
-    edp = self.get_electron_density(x_array, z_array)
-    return (z_array[np.argmin(edp)], np.amin(edp))
+    def find_methyl(self, x, lambda_r, D, A, xM):
+        """Return the z position of minimum electron density along a vertical line
+        at x and corresponding electron density. For a normal EDP, this should
+        correspond to the terminal methyl group position.
+        """
+        z0 = where_in_sawtooth(x, lambda_r, A, xM)
+        # +/-10 Angstrom from the sawtooth should be enough to find the mid-plane
+        z_array = np.linspace(z0-10, z0+10, 201)
+        x_array = np.zeros(201) + x
+        edp = self._get_electron_density(x_array, z_array)
+        return (z_array[np.argmin(edp)], np.amin(edp))
   
-  def get_electron_density(self, x_array, z_array):
-    """Return electron density calculated at points specified by 
-    x_array and z_array
-    """
-    if x_array.size != z_array.size:
-      print("length of x must be equal to length of z")
-      return
-    tmp = np.zeros(x_array.size)
-    for F, qx, qz in zip(self.phase*self.F, self.qx, self.qz):
-      tmp = tmp + F * cos(qx*x_array+qz*z_array)
-    return tmp
-  
-  def vertical_plot(self, x, zmin=-40, zmax=40, stepsize=0.5):
-    """
-    Create a vertical plot of 2D EDP at input x
-    """
-    if zmin > zmax:
-      zmin, zmax = zmax, zmin
-    length = zmax - zmin
-    num_point = length/stepsize + 1
-    x_array = np.zeros(num_point) + x
-    z_array = np.linspace(zmin, zmax, num_point)
-    edp_array = self.get_electron_density(x_array, z_array)
-    plt.figure()
-    plt.plot(z_array, edp_array)
-    plt.show(block=False)
-    return z_array, edp_array
-    
-  def horizontal_plot(self, z, xmin=-100, xmax=100, stepsize=0.5):
-    """
-    Create a horizontal plot of 2D EDP at input z
-    """
-    if xmin > xmax:
-      xmin, xmax = xmax, xmin
-    length = xmax - xmin
-    num_point = length/stepsize + 1
-    x_array = np.linspace(xmin, xmax, num_point)
-    z_array = np.zeros(num_point) + z
-    edp_array = self.get_electron_density(x_array, z_array)
-    plt.figure()
-    plt.plot(x_array, edp_array)
-    plt.show(block=False)
-    return x_array, edp_array
+    def _get_electron_density(self, x_array, z_array):
+        """Return electron density calculated at points specified by 
+        x_array and z_array
+        """
+        if x_array.size != z_array.size:
+            print("length of x must be equal to length of z")
+            return
+        tmp = np.zeros(x_array.size)
+        for F, qx, qz in zip(self.phase*self.F, self.qx, self.qz):
+            tmp = tmp + F * cos(qx*x_array+qz*z_array)
+        return tmp
     
               
 ###############################################################################
 class Sawtooth(BaseRipple):
   def __init__(self, h, k, q, I, sigma, D=57.8, lambda_r=145, gamma=1.71, 
-               x0=100, A=20):
+               xM=100, A=20):
     super(Sawtooth, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma)
     self.edp_par = Parameters()
-    self.edp_par.add('x0', value=x0, vary=True)
+    self.edp_par.add('xM', value=xM, vary=True)
     self.edp_par.add('A', value=A, vary=True)
     self.edp_par.add('f1', value=1, vary=False)
     self.edp_par.add('f2', value=0, vary=False)
@@ -804,36 +733,36 @@ class Sawtooth(BaseRipple):
     f1 = self.edp_par['f1'].value
     f2 = self.edp_par['f2'].value
     common_scale = self.edp_par['common_scale'].value
-    #sec = (-1)**self.k * (lr-x0) * sin(self.k*pi-w)/(self.k*pi-w)/lr
+    #sec = (-1)**self.k * (lr-xM) * sin(self.k*pi-w)/(self.k*pi-w)/lr
     return common_scale * (self.FCmajor()*self.FTmajor() + 
             f1*self.FCminor()*self.FTminor() + 
             f2*self.FCkink()*self.FTkink()) 
     
   def FCmajor(self):
-    x0 = self.edp_par['x0'].value
+    xM = self.edp_par['xM'].value
     A = self.edp_par['A'].value
     lr = self.latt_par['lambda_r'].value
-    w = 0.5 * (self.qx*x0 + self.qz*A)
-    return x0 * np.sin(w) / lr / w
+    w = 0.5 * (self.qx*xM + self.qz*A)
+    return xM * np.sin(w) / lr / w
 
   def FCminor(self):
-    x0 = self.edp_par['x0'].value
+    xM = self.edp_par['xM'].value
     A = self.edp_par['A'].value
     lr = self.latt_par['lambda_r'].value
-    w = 0.5 * (self.qx*x0 + self.qz*A)
+    w = 0.5 * (self.qx*xM + self.qz*A)
     arg1 = 0.5*self.qx*lr + w
     arg2 = 0.5*self.qx*lr - w    
-    return (lr-x0) * np.cos(0.5*arg1) * np.sin(arg2) / lr / np.cos(0.5*arg2) / arg2 
+    return (lr-xM) * np.cos(0.5*arg1) * np.sin(arg2) / lr / np.cos(0.5*arg2) / arg2 
     
   def FCkink(self):
-    x0 = self.edp_par['x0'].value
+    xM = self.edp_par['xM'].value
     A = self.edp_par['A'].value
     lr = self.latt_par['lambda_r'].value
-    w = 0.5 * (self.qx*x0 + self.qz*A)
+    w = 0.5 * (self.qx*xM + self.qz*A)
     return 2*np.cos(w)/lr
   
   def where_in_sawtooth(self, x):
-    xM = self.edp_par['x0'].value
+    xM = self.edp_par['xM'].value
     A = self.edp_par['A'].value
     lr = self.latt_par['lambda_r'].value    
     return where_in_sawtooth(np.array([x]), lr, A, xM)
@@ -851,9 +780,9 @@ def where_in_sawtooth(x, lambda_r, A, xM):
 ###############################################################################
 class SDF(Sawtooth):
   def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
-               x0=100, A=20, 
+               xM=100, A=20, 
                common_scale=20, R_HM=2, X_h=20, psi=0.087):
-    super(SDF, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A)
+    super(SDF, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, xM, A)
     self.edp_par.add('common_scale', value=common_scale, vary=True, min=0)
     self.edp_par.add('R_HM', value=R_HM, vary=True, min=0)
     self.edp_par.add('X_h', value=X_h, vary=True, min=0)
@@ -875,9 +804,9 @@ class SDF(Sawtooth):
 ###############################################################################
 class MDF(SDF):
   def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
-               x0=100, A=20, f1=1, f2=0, 
+               xM=100, A=20, f1=1, f2=0, 
                common_scale=20, R_HM=2, X_h=20, psi=0.087):
-    super(MDF, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A, 
+    super(MDF, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, xM, A, 
                               common_scale, R_HM, X_h, psi)
     self.edp_par['f1'].value = f1
     self.edp_par['f2'].value = f2
@@ -888,11 +817,11 @@ class MDF(SDF):
 ###############################################################################
 class S2G(Sawtooth):
   def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
-               x0=100, A=20.27, 
+               xM=100, A=20.27, 
                rho_H1=2.21, Z_H1=20.00, sigma_H1=3.33,
                rho_H2=2.22, Z_H2=22.22, sigma_H2=3.33,
                rho_M=1, sigma_M=3, psi=0.087, common_scale=0.1):
-    super(S2G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A)
+    super(S2G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, xM, A)
     self.edp_par.add('rho_H1', value=rho_H1, vary=True, min=0)
     self.edp_par.add('Z_H1', value=Z_H1, vary=True, min=0, max=30)
     self.edp_par.add('sigma_H1', value=sigma_H1, vary=True, min=0)
@@ -963,11 +892,11 @@ class S2G(Sawtooth):
 ###############################################################################
 class M2G(S2G):
   def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
-               x0=100, A=20, f1=1, f2=0, 
+               xM=100, A=20, f1=1, f2=0, 
                rho_H1=2.21, Z_H1=20.24, sigma_H1=3.33,
                rho_H2=2.22, Z_H2=20.22, sigma_H2=3.33, 
                rho_M=1, sigma_M=3, psi=0.087, common_scale=0.1):
-    super(M2G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A, 
+    super(M2G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, xM, A, 
                               rho_H1, Z_H1, sigma_H1, rho_H2, Z_H2, sigma_H2, 
                               rho_M, sigma_M, psi, common_scale)
     self.edp_par['f1'].value = f1
@@ -979,7 +908,7 @@ class M2G(S2G):
 ###############################################################################
 class S1G(Sawtooth):
   def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
-               x0=100, A=20.27, 
+               xM=100, A=20.27, 
                rho_H_major=2.21, rho_H_minor=2.21,
                Z_H_major=20.00, Z_H_minor=20.00,
                sigma_H_major=3.33, sigma_H_minor=3.33,
@@ -987,7 +916,7 @@ class S1G(Sawtooth):
                sigma_M_major=3, sigma_M_minor=3,
                psi_major=0.087, psi_minor=0.087,
                common_scale=0.1):
-    super(S1G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A)
+    super(S1G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, xM, A)
     self.edp_par.add('rho_H_major', value=rho_H_major, vary=True)
     self.edp_par.add('rho_H_minor', value=rho_H_minor, vary=False)
     self.edp_par.add('Z_H_major', value=Z_H_major, vary=True, min=0, max=30)
@@ -1083,7 +1012,7 @@ class S1G(Sawtooth):
 ###############################################################################
 class M1G(S1G):
   def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
-               x0=100, A=20, f1=1, f2=0, 
+               xM=100, A=20, f1=1, f2=0, 
                rho_H_major=2.21, rho_H_minor=2.21,
                Z_H_major=20.00, Z_H_minor=20.00,
                sigma_H_major=3.33, sigma_H_minor=3.33,
@@ -1091,7 +1020,7 @@ class M1G(S1G):
                sigma_M_major=3, sigma_M_minor=3,
                psi_major=0.087, psi_minor=0.087,
                common_scale=0.1):
-    super(M1G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, x0, A, 
+    super(M1G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, xM, A, 
                               rho_H_major, rho_H_minor,
                               Z_H_major, Z_H_minor,
                               sigma_H_major, sigma_H_minor, 
@@ -1117,7 +1046,7 @@ class M1G(S1G):
       f.write("D={0: f}\n".format(self.latt_par['D'].value))
       f.write("lambda_r={0: f}\n".format(self.latt_par['lambda_r'].value))
       f.write("gamma={0: f}\n".format(self.latt_par['gamma'].value))
-      f.write("x0={0: f}, {1: b}\n".format(self.edp_par['x0'].value, self.edp_par['x0'].vary))
+      f.write("xM={0: f}, {1: b}\n".format(self.edp_par['xM'].value, self.edp_par['xM'].vary))
       f.write("A={0: f}, {1: b}\n".format(self.edp_par['A'].value, self.edp_par['A'].vary))
       f.write("f1={0: f}, {1: b}\n".format(self.edp_par['f1'].value, self.edp_par['f1'].vary))
       f.write("f2={0: f}, {1: b}\n".format(self.edp_par['f2'].value, self.edp_par['f2'].vary))
@@ -1136,19 +1065,19 @@ class M1G(S1G):
       f.write("common_scale={0: f}, {1: b}\n".format(self.edp_par['common_scale'].value, self.edp_par['common_scale'].vary))
    
 ###############################################################################
-def F_C(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,x0=103,A=18.6):
+def F_C(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,xM=103,A=18.6):
   qx = 2*pi*k/lr
   qz = 2*pi*h/D - 2*pi*k/lr/tan(gamma)
-  w = 0.5*(qx*x0+qz*A)
+  w = 0.5*(qx*xM+qz*A)
   arg1 = 0.5*qx*lr + w
   arg2 = 0.5*qx*lr - w
-  return x0*sin(w)/w/lr+(lr-x0)/lr*cos(0.5*arg1)/cos(0.5*arg2)*sin(arg2)/arg2  
+  return xM*sin(w)/w/lr+(lr-xM)/lr*cos(0.5*arg1)/cos(0.5*arg2)*sin(arg2)/arg2  
 
-def F_C2(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,x0=103,A=18.6):
+def F_C2(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,xM=103,A=18.6):
   qx = 2*pi*k/lr
   qz = 2*pi*h/D - 2*pi*k/lr/tan(gamma)
-  w = 0.5*(qx*x0+qz*A)
-  return sin(w)*(k*pi*x0/lr-w)/(w*(k*pi-w))
+  w = 0.5*(qx*xM+qz*A)
+  return sin(w)*(k*pi*xM/lr-w)/(w*(k*pi-w))
 
 def F_T(h=1,k=0,D=57.94,lr=141.7,gamma=1.7174,rhom=51.38,rhm=2.2,xh=20.1,psi=5):
   psi = psi * pi / 180
@@ -1168,7 +1097,7 @@ if __name__ == "__main__":
 ###############################################################################
   # Work on SDF
   sdf = SDF(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714, 
-            x0=103, A=18.6, 
+            xM=103, A=18.6, 
             common_scale=51, R_HM=2.1, X_h=20.1, psi=0.08) 
   sdf.set_combined_peaks(combined)
 #  sdf.set_mask(h=1, k=0, value=False)
@@ -1183,7 +1112,7 @@ if __name__ == "__main__":
 ###############################################################################
   # Work on MDF
   mdf = MDF(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714, 
-            x0=104, A=22, f1=1, f2=-5, 
+            xM=104, A=22, f1=1, f2=-5, 
             common_scale=50, R_HM=2.2, X_h=20, psi=0.05) 
 #  mdf.set_mask(h=1, k=0, value=False)
 #  mdf.set_mask(h=2, k=0, value=False)
@@ -1193,7 +1122,7 @@ if __name__ == "__main__":
 ###############################################################################
   # Work on S1G
   s1g = S1G(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714, 
-            x0=103, A=18.5, 
+            xM=103, A=18.5, 
             rho_H1=10.77, Z_H1=20.86, sigma_H1=3.43,
             rho_M=9.23, sigma_M=1.67, psi=0.0873, common_scale=50)
 #  s1g.set_combined_peaks(combined)
@@ -1208,11 +1137,11 @@ if __name__ == "__main__":
 ###############################################################################
   # Work on M1G
   m1g = M1G(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714,
-            x0=103, A=19.0, f1=0.6, f2=-1, 
+            xM=103, A=19.0, f1=0.6, f2=-1, 
             rho_H1=10.77, Z_H1=19.3, sigma_H1=3.43,
             rho_M=9.23, sigma_M=1.67, psi=0.157, common_scale=50)
 #  m1g.fit_lattice()
-#  m1g.edp_par['x0'].vary = True
+#  m1g.edp_par['xM'].vary = True
 #  m1g.edp_par['A'].vary = True
 #  m1g.edp_par['f1'].vary = True  
 #  m1g.edp_par['f2'].vary = True
@@ -1229,7 +1158,7 @@ if __name__ == "__main__":
 ###############################################################################
   # Work on S2G
   s2g = S2G(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714,
-            x0=100, A=20, 
+            xM=100, A=20, 
             rho_H1=9.91, Z_H1=19.45, sigma_H1=2.94,
             rho_H2=7.27, Z_H2=23.47, sigma_H2=1.47, 
             rho_M=10.91, sigma_M=1.83, psi=0.1, common_scale=50)
@@ -1247,7 +1176,7 @@ if __name__ == "__main__":
 ###############################################################################
   # Work on M2G
   m2g = M2G(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714,
-            x0=100, A=20, f1=0.6, f2=-1, 
+            xM=100, A=20, f1=0.6, f2=-1, 
             rho_H1=9.91, Z_H1=19.45, sigma_H1=2.94,
             rho_H2=7.27, Z_H2=23.47, sigma_H2=1.47, 
             rho_M=10.91, sigma_M=1.83, psi=0.1, common_scale=50)

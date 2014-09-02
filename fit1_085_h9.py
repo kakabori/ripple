@@ -1,4 +1,4 @@
-from ripintensity import *
+from ripplefit import *
 
 # read data to be fitted
 infilename = 'intensity/085_h9_ver4.dat'
@@ -7,7 +7,7 @@ h, k, q, I, sigma, combined = read_data_5_columns(infilename)
 ###############################################################################
 # Work on M1G
 m1g = M1G(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714,
-          x0=110.5, A=25.78, f1=0.8, f2=0, 
+          xM=110.5, A=25.78, f1=0.8, f2=0, 
           rho_H_major=10.77, rho_H_minor=10.77,
           Z_H_major=20.08, Z_H_minor=20.08,
           sigma_H_major=3.43, sigma_H_minor=3.43,
@@ -44,5 +44,6 @@ m1g.fit_edp()
 #m1g.export_angle("fits/fit1_1D_major.txt", center=(0,0), angle=-11.8, length=100, stepsize=0.1)
 #m1g.export_angle("fits/fit1_1D_minor.txt", center=(72.5,0), angle=27.1, length=100, stepsize=0.1)
 m1g.export_headgroup_positions("fits/fit1_headgroup.txt")
+m1g.export_methyl_positions("fits/fit1_methyl.txt")
 m1g.export_phases("fits/fit1_phases.txt")
 m1g.report_edp()   
