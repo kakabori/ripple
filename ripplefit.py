@@ -176,6 +176,7 @@ class BaseRipple(object):
     self.q = np.array(q, float)
     self.I = np.array(I, float)
     self.F = sqrt(np.array(I, float))
+    self.phase = np.ones(self.F.size)
     self.sigma = np.array(sigma, float)
     self.latt_par = Parameters()
     self.latt_par.add('D', value=D, vary=True)
@@ -185,6 +186,9 @@ class BaseRipple(object):
     self.comb_peaks = CombinedPeaks()
     self._set_qxqz()
     self.edm = ElectronDensityMap()
+    self.edm.qx = self.qx
+    self.edm.qz = self.qz
+    self.edm.F = self.phase * self.F
 
   def set_combined_peaks(self, comb):
     """
@@ -523,7 +527,7 @@ class BaseRipple(object):
 	will plot the EDP about (x,z)=(0,0), along a line making 10 degrees
 	in CCW from the z-axis, with +/-30 Angstrom above and below the
 	center, calculated every Angstrom.
-    """  
+    """
     self.edm.plot_EDP_angle(center, angle, length, stepsize, self.phase*self.F)
     
   def plot_model_EDP(self, center=(0,0), angle=0, length=60, stepsize=0.5):
@@ -535,6 +539,7 @@ class BaseRipple(object):
     lower leaflet, and the third for upper leaflet. This method assumes
     that headgroups have the maximum electron density.    
     """
+    self.edm.F = self.phase * self.F
     self.edm.export_headgroup_positions(self.latt_par['lambda_r'].value, 
                                         self.latt_par['D'].value, 
                                         self.edp_par['A'].value, 
@@ -545,6 +550,7 @@ class BaseRipple(object):
     """Export an ASCII file containing teminal methyl positions. 
     This method assumes that terminal methyls have the minimum electron density.       
     """
+    self.edm.F = self.phase * self.F
     self.edm.export_methyl_positions(self.latt_par['lambda_r'].value, 
                                      self.latt_par['D'].value, 
                                      self.edp_par['A'].value, 
@@ -710,7 +716,7 @@ class ElectronDensityMap(object):
             print("length of x must be equal to length of z")
             return
         tmp = np.zeros(x_array.size)
-        for F, qx, qz in zip(self.phase*self.F, self.qx, self.qz):
+        for F, qx, qz in zip(self.F, self.qx, self.qz):
             tmp = tmp + F * cos(qx*x_array+qz*z_array)
         return tmp
     
@@ -768,9 +774,15 @@ class Sawtooth(BaseRipple):
     return where_in_sawtooth(np.array([x]), lr, A, xM)
     
 def where_in_sawtooth(x, lambda_r, A, xM):
+  # First, make sure x is numpy.array
+  x = np.asarray(x)
+  if x.ndim == 0:
+    x.shape = 1
+  # Bring x outside of unit cell to the inside 
   while (x<-lambda_r/2).any() or (x>lambda_r/2).any():
     x[x<-lambda_r/2] = x[x<-lambda_r/2] + lambda_r
-    x[x>lambda_r/2] = x[x>lambda_r/2] - lambda_r    
+    x[x>lambda_r/2] = x[x>lambda_r/2] - lambda_r
+  # z contains sawtooth z value corresponding to input x      
   z = np.zeros(x.size)
   z[x<-xM/2] = -A * (x[x<-xM/2] + lambda_r/2) / (lambda_r - xM)
   z[x>xM/2] = -A * (x[x>xM/2] - lambda_r/2) / (lambda_r - xM)
