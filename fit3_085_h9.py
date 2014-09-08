@@ -23,13 +23,22 @@ m2g.edp_par['rho_M'].vary = False
 m2g.edp_par['sigma_M'].vary = False
 m2g.fit_edp()
   
-m2g.report_edp()
+#m2g.report_edp()
 #m2g.export_model_F("fits/fit3_F.txt")
 #m2g.export_model_I("fits/fit3_I.txt")
 #m2g.export_2D_edp("fits/fit3_2D_edp.txt")
 #m2g.export_params("fits/fit3_params.txt")
 #m2g.export_angle("fits/fit3_1D_major.txt", center=(0,0), angle=-11.8, length=100, stepsize=0.1)
 #m2g.export_angle("fits/fit3_1D_minor.txt", center=(72.5,0), angle=27.1, length=100, stepsize=0.1)
-m2g.export_headgroup_positions("fits/fit3_headgroup.txt")
-m2g.export_methyl_positions("fits/fit3_methyl.txt")
-m2g.export_phases("fits/fit3_phases.txt")
+#m2g.export_headgroup_positions("fits/fit3_headgroup.txt")
+#m2g.export_methyl_positions("fits/fit3_methyl.txt")
+#m2g.export_phases("fits/fit3_phases.txt")
+
+m2g.export_EDP("fits/fit3_EDP_0.txt", center=(0,0), angle=-11.8, length=100, stepsize=0.1)
+m2g.export_EDP("fits/fit3_EDP_1.txt", center=(10,2.1), angle=-11.8, length=100, stepsize=0.1)
+m2g.export_EDP("fits/fit3_EDP_2.txt", center=(20,4.3), angle=-11.8, length=100, stepsize=0.1)
+m2g.export_EDP("fits/fit3_EDP_3.txt", center=(30,6.4), angle=-11.8, length=100, stepsize=0.1)
+m2g.export_EDP("fits/fit3_EDP_4.txt", center=(40,8.5), angle=-11.8, length=100, stepsize=0.1)
+
+m2g.export_EDP_between_two_points("fits/fit3_EDP_11.txt", start=(-40,-1), end=(40,16), N=161)
+m2g.export_EDP_between_two_points("fits/fit3_EDP_12.txt", start=(-40,21), end=(40,38), N=161)

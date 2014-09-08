@@ -49,3 +49,6 @@ m2g.export_EDP("fits/fit5_EDP_1.txt", center=(10,2.1), angle=-11.8, length=100, 
 m2g.export_EDP("fits/fit5_EDP_2.txt", center=(20,4.3), angle=-11.8, length=100, stepsize=0.1)
 m2g.export_EDP("fits/fit5_EDP_3.txt", center=(30,6.4), angle=-11.8, length=100, stepsize=0.1)
 m2g.export_EDP("fits/fit5_EDP_4.txt", center=(40,8.5), angle=-11.8, length=100, stepsize=0.1)
+
+m2g.export_EDP_between_two_points("fits/fit5_EDP_11.txt", start=(-40,-1), end=(40,16), N=161)
+m2g.export_EDP_between_two_points("fits/fit5_EDP_12.txt", start=(-40,21), end=(40,38), N=161)
