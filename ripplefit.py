@@ -504,11 +504,13 @@ class BaseRipple(object):
 
   def export_EDP(self, filename="EDP.dat", center=(0,0), angle=-10, 
                  length=60, stepsize=0.5):
-    self.edm.plot_EDP_angle(center, angle, length, stepsize, self.phase*self.F, filename)
+    self.edm.plot_EDP_angle(center, angle, length, stepsize, self.phase*self.F, 
+                            filename)
   
   def export_model_EDP(self, filename="model_EDP.dat", center=(0.0), angle=-10, 
                        length=60, stepsize=0.5):
-    self.edm.plot_EDP_angle(center, angle, length, stepsize, self._model_F(), filename)
+    self.edm.plot_EDP_angle(center, angle, length, stepsize, self._model_F(), 
+                            filename)
   
   def plot_EDP(self, center=(0,0), angle=-10, length=60, stepsize=0.5):
     """Plot EDP along a line making an angle in degrees with respect to 
@@ -529,6 +531,18 @@ class BaseRipple(object):
 	center, calculated every Angstrom.
     """
     self.edm.plot_EDP_angle(center, angle, length, stepsize, self.phase*self.F)
+    
+  def plot_EDP_between_two_points(self, start, end, N):
+      """Plot an experimental EDP along a line connecting two points 
+      secified by start and end, on N points. 
+      """  
+      self.edm.plot_EDP_endpoints(start, end, N, self.phase*self.F)
+
+  def export_EDP_between_two_points(self, filename, start, end, N):
+      """Export an experimental EDP along a line connecting two points 
+      secified by start and end, on N points, as an ASCII file.
+      """
+      self.edm.plot_EDP_endpoints(start, end, N, self.phase*self.F, filename)
     
   def plot_model_EDP(self, center=(0,0), angle=0, length=60, stepsize=0.5):
     self.edm.plot_EDP_angle(center, angle, length, stepsize, self._model_F())
@@ -606,9 +620,9 @@ class ElectronDensityMap(object):
         and end, on N points. If filename is specified, export an
         ASCII file instead.
         """
-        xM, z0 = start
+        x0, z0 = start
         x1, z1 = end
-        xpoints = np.linspace(xM, x1, N)
+        xpoints = np.linspace(x0, x1, N)
         zpoints = np.linspace(z0, z1, N)
         self._plot_EDP(xpoints, zpoints, start, F, filename)
             
@@ -629,7 +643,8 @@ class ElectronDensityMap(object):
         self._plot_EDP(xpoints, zpoints, center, F, filename)     
     
     def _plot_EDP(self, xarray, zarray, center, F, filename):
-        X, Z, DIST, EDP = self._calc_EDP(xarray, zarray, center, F)
+        self.F = F
+        X, Z, DIST, EDP = self._calc_EDP(xarray, zarray, center)
         if filename is None:
             plt.figure()
             plt.plot(DIST, EDP)
@@ -639,10 +654,10 @@ class ElectronDensityMap(object):
                 for x, z, dist, edp in zip(X, Z, DIST, EDP):
                     f.write("{0: 3.1f} {1: 3.1f} {2: 3.1f} {3: }\n".format(x, z, dist, edp))
         
-    def _calc_EDP(self, xpoints, zpoints, (xM,z0), F):
+    def _calc_EDP(self, xpoints, zpoints, (xM,z0)):
         rho = []
         for x, z in zip(xpoints, zpoints):
-            tmp = F * np.cos(self.qx*x+self.qz*z)
+            tmp = self.F * np.cos(self.qx*x+self.qz*z)
             dist = np.sign(z-z0)*np.sqrt((x-xM)**2 + (z-z0)**2)
             rho.append([x, z, dist, tmp.sum(axis=0)])
         rho = np.array(rho, float)

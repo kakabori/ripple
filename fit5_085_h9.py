@@ -32,13 +32,20 @@ m2g.edp_par['rho_H2'].vary = True
 m2g.edp_par['rho_M'].vary = True
 m2g.fit_edp()
 
-m2g.report_edp()
+#m2g.report_edp()
 #m2g.export_model_F("fits/fit5_F.txt")
 #m2g.export_model_I("fits/fit5_I.txt")
 #m2g.export_2D_edp("fits/fit5_2D_edp.txt")
 #m2g.export_params("fits/fit5_params.txt")
 #m2g.export_angle("fits/fit5_1D_major.txt", center=(0,0), angle=-11.8, length=100, stepsize=0.1)
 #m2g.export_angle("fits/fit5_1D_minor.txt", center=(72.5,0), angle=27.1, length=100, stepsize=0.1)
-m2g.export_headgroup_positions("fits/fit5_headgroup.txt")
-m2g.export_methyl_positions("fits/fit5_methyl.txt")
-m2g.export_phases("fits/fit5_phases.txt")
+#m2g.export_headgroup_positions("fits/fit5_headgroup.txt")
+#m2g.export_methyl_positions("fits/fit5_methyl.txt")
+#m2g.export_phases("fits/fit5_phases.txt")
+
+# Plot EDP on a line with xiM = 12 degrees
+m2g.export_EDP("fits/fit5_EDP_0.txt", center=(0,0), angle=-11.8, length=100, stepsize=0.1)
+m2g.export_EDP("fits/fit5_EDP_1.txt", center=(10,2.1), angle=-11.8, length=100, stepsize=0.1)
+m2g.export_EDP("fits/fit5_EDP_2.txt", center=(20,4.3), angle=-11.8, length=100, stepsize=0.1)
+m2g.export_EDP("fits/fit5_EDP_3.txt", center=(30,6.4), angle=-11.8, length=100, stepsize=0.1)
+m2g.export_EDP("fits/fit5_EDP_4.txt", center=(40,8.5), angle=-11.8, length=100, stepsize=0.1)
