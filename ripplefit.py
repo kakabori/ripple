@@ -509,6 +509,10 @@ class BaseRipple(object):
         """
         self.edm.plot_EDP_endpoints(start, end, N, self.phase*self.F, filename)
     
+    def get_EDP_between_two_points(self, start, end, N):
+        self.edm.F = self.phase * self.F
+        return self.edm.get_EDP_endpoints(start, end, N)
+        
     def plot_model_EDP(self, center=(0,0), angle=0, length=60, stepsize=0.5):
         self.edm.plot_EDP_angle(center, angle, length, stepsize, self._model_F())
         
@@ -579,7 +583,16 @@ class ElectronDensityMap(object):
         rho_xz = np.array(rho_xz, float)  
         X, Y, Z= rho_xz[:,0], rho_xz[:,1], rho_xz[:,2]
         return X, Y, Z
-
+    
+    def get_EDP_endpoints(self, start, end, N):
+        x0, z0 = start
+        x1, z1 = end
+        xpoints = np.linspace(x0, x1, N)
+        zpoints = np.linspace(z0, z1, N)
+        X, Z, DIST, EDP = self._calc_EDP(xpoints, zpoints, start)
+        return X, Z, DIST, EDP
+        
+    
     def plot_EDP_endpoints(self, start, end, N, F, filename=None): 
         """Plot an experimental EDP along a line connecting start 
         and end, on N points. If filename is specified, export an
@@ -1064,34 +1077,36 @@ def flatness(x):
     chisqr = ((x-x.mean())**2).sum() / (x.size-1)
     return chisqr
     
-def most_flat_profile(rip)
-    mylist = []
+def most_flat_profile(rip):
+    mydict = {}
+    best = 10**10
     # Grab indices for h = 6 orders
     index = np.where(rip.h==6)
     # There are N possible combinations for the phase factors
     N = 2**len(index[0])
     # Basic idea: convert i to binary string s. This loop will go through
-    # all N possible combination. 
-    for i in range(N):
-        s = generate_binary_string(i, N)
+    # all N possible combinations. 
+    for i in xrange(N):
+        s = generate_binary_string(i, N-1)
         a = np.array(binary_string_to_list(s), int)
         # Change binary 0 to phase factor -1
         a[a==0] = -1
         # Replace a subset of the phase factors with a generated combination
-        rip.phase[index] = a
-        
-        X, Z, DIST, ED = rip.get_EDP_between_two_points()
-        mylist.append(flatness(ED))
-    min(mylist)    
+        rip.phase[index] = a       
+        X, Z, DIST, ED = rip.get_EDP_between_two_points(start=(-40,21), end=(40,38), N=161)
+        if flatness(ED) < best:
+            best = flatness(ED)
+            best_array = a
+        mydict[s] = flatness(ED)
+        #mylist.append(flatness(ED))
+    rip.phase[index] = best_array
+    return mydict, best_array, best
     
-def :
-    for i in generate_combination(n, N):
-
 def binary_string_to_list(s):
     mylist = []
     for i in s:
         mylist.append(int(i))
-    return np.array(mylist)
+    return mylist
     
 def generate_binary_string(n, N):
     ret = "{0:b}".format(n)
