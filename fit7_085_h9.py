@@ -1,7 +1,7 @@
 from ripplefit import *
 
 # read data to be fitted
-infilename = 'intensity/085_h9_ver4.dat'
+infilename = 'intensity/085_h9_ver6.dat'
 h, k, q, I, sigma, combined = read_data_5_columns(infilename)
 
 ###############################################################################

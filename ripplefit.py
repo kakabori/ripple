@@ -953,7 +953,7 @@ class S1G(Sawtooth):
     
     return rho_H_major, Z_H_major, sigma_H_major, rho_M_major, sigma_M_major, psi_major
     
-  def unpack_minor(self):
+  def unpack_minor(self):433 
     rho_H_minor = self.edp_par['rho_H_minor'].value
     Z_H_minor = self.edp_par['Z_H_minor'].value
     sigma_H_minor = self.edp_par['sigma_H_minor'].value
@@ -1114,3 +1114,12 @@ def generate_binary_string(n, N):
         ret = '0' + ret
     return ret
   
+def symmetry(x):
+    center = np.argmin(x)
+    for i in xrange(1,301):
+        left = x[center-i]
+        right = x[center+i]
+    
+    
+def most_symmetric_profile(rip):
+    pass
