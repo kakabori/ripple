@@ -877,7 +877,7 @@ class S1G(Sawtooth):
     
     return rho_H_major, Z_H_major, sigma_H_major, rho_M_major, sigma_M_major, psi_major
     
-  def unpack_minor(self): 
+  def unpack_minor(self):
     rho_H_minor = self.edp_par['rho_H_minor'].value
     Z_H_minor = self.edp_par['Z_H_minor'].value
     sigma_H_minor = self.edp_par['sigma_H_minor'].value
