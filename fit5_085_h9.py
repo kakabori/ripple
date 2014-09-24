@@ -44,11 +44,23 @@ m2g.fit_edp()
 #m2g.export_phases("fits/fit5_phases.txt")
 
 # Plot EDP on a line with xiM = 12 degrees
+
 m2g.export_EDP("fits/fit5_EDP_0.txt", center=(0,0), angle=-11.8, length=100, stepsize=0.1)
 m2g.export_EDP("fits/fit5_EDP_1.txt", center=(10,2.1), angle=-11.8, length=100, stepsize=0.1)
 m2g.export_EDP("fits/fit5_EDP_2.txt", center=(20,4.3), angle=-11.8, length=100, stepsize=0.1)
 m2g.export_EDP("fits/fit5_EDP_3.txt", center=(30,6.4), angle=-11.8, length=100, stepsize=0.1)
 m2g.export_EDP("fits/fit5_EDP_4.txt", center=(40,8.5), angle=-11.8, length=100, stepsize=0.1)
+m2g.export_EDP("fits/fit5_EDP_5.txt", center=(-10,-2.1), angle=-11.8, length=100, stepsize=0.1)
+m2g.export_EDP("fits/fit5_EDP_6.txt", center=(-20,-4.3), angle=-11.8, length=100, stepsize=0.1)
+m2g.export_EDP("fits/fit5_EDP_7.txt", center=(-30,-6.4), angle=-11.8, length=100, stepsize=0.1)
+m2g.export_EDP("fits/fit5_EDP_8.txt", center=(-40,-8.5), angle=-11.8, length=100, stepsize=0.1)
 
+# Plot through hydrocarbon region
 m2g.export_EDP_between_two_points("fits/fit5_EDP_11.txt", start=(-40,-1), end=(40,16), N=161)
-m2g.export_EDP_between_two_points("fits/fit5_EDP_12.txt", start=(-40,21), end=(40,38), N=161)
+
+# Plot through water region
+m2g.export_EDP_between_two_points("fits/fit5_EDP_13.txt", start=(-145,29), end=(-95,39), N=51)
+m2g.export_EDP_between_two_points("fits/fit5_EDP_14.txt", start=(-95,39), end=(-55,18), N=41)
+m2g.export_EDP_between_two_points("fits/fit5_EDP_15.txt", start=(-55,18), end=(50,39), N=106)
+m2g.export_EDP_between_two_points("fits/fit5_EDP_16.txt", start=(50,39), end=(90,18), N=41)
+m2g.export_EDP_between_two_points("fits/fit5_EDP_17.txt", start=(90,18), end=(145,29), N=56)

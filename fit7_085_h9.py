@@ -51,3 +51,10 @@ m2g.export_EDP("fits/fit7_EDP_4.txt", center=(40,8.5), angle=-11.8, length=100, 
 
 m2g.export_EDP_between_two_points("fits/fit7_EDP_11.txt", start=(-40,-1), end=(40,16), N=161)
 m2g.export_EDP_between_two_points("fits/fit7_EDP_12.txt", start=(-40,21), end=(40,38), N=161)
+
+# Plot through water region
+m2g.export_EDP_between_two_points("fits/PF7_EDP_13.txt", start=(-145,29), end=(-95,39), N=51)
+m2g.export_EDP_between_two_points("fits/PF7_EDP_14.txt", start=(-95,39), end=(-55,18), N=41)
+m2g.export_EDP_between_two_points("fits/PF7_EDP_15.txt", start=(-55,18), end=(50,39), N=106)
+m2g.export_EDP_between_two_points("fits/PF7_EDP_16.txt", start=(50,39), end=(90,18), N=41)
+m2g.export_EDP_between_two_points("fits/PF7_EDP_17.txt", start=(90,18), end=(145,29), N=56)

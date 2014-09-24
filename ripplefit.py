@@ -21,46 +21,6 @@ class Peak(object):
       self.sigma = float(sigma)
     else:
       print("Dude, length of hs and ks are different")
-  
-class CombinedPeaks(object):
-  """
-  input hs and ks should be a list, tuple, or array
-  I and sigma are floating points
-  """
-  def __init__(self):
-    self.peak_list = []
-    
-  def add_peak(self, hs, ks, I, sigma=1):
-    p = Peak(hs, ks, I, sigma)
-    self.peak_list.append(p)
-    
-  def get_all_hkIsigma(self):
-    """
-    Return hs, ks, I, sigma
-    """
-    ret1 = []
-    ret2 = []
-    ret3 = []
-    ret4 = []
-    for p in self.peak_list:
-      np.append(ret1, p.hs)
-      np.append(ret2, p.ks)
-      np.append(ret3, p.I)
-      np.append(ret4, p.sigma)
-    return ret1, ret2, ret3, ret4
-    
-  def shrink(self, arr):
-    """
-    Shrink the input array, arr, according to the prescription given by
-    peak_list
-    """
-    index = 0
-    ret = []
-    for p in self.peak_list:
-      ret.append(np.sum(arr[index:index+len(p.hs)]))
-      index = index + len(p.hs)
-      
-    return np.array(ret)
 
  
 def read_data_5_columns(filename="ripple_082-085.dat"):
@@ -182,28 +142,11 @@ class BaseRipple(object):
         self.latt_par.add('lambda_r', value=lambda_r, vary=True)
         self.latt_par.add('gamma', value=gamma, vary=True)
         self.mask = np.ones(self.h.size, dtype=bool)
-        self.comb_peaks = CombinedPeaks()
         self._set_qxqz()
         self.edm = ElectronDensityMap()
         self.edm.qx = self.qx
         self.edm.qz = self.qz
         self.edm.F = self.phase * self.F
-
-    def set_combined_peaks(self, comb):
-        """comb is a list of lists. Within each are four elements. The first elememt
-        is a tuple of h indicies. The second is a tuple of k indicies. The third
-        is the sum of intensity of the individual indexed peaks. The last is
-        the uncertainty on the sum of intensity.
-        
-        format: [[(h1a, h1b, h1c), (k1a, k1b, k1c), I1, sigma1], 
-                 [(h2a, h2b), (k2a, k2b), I2, sigma2], ...
-                ]
-        , where (h1a,k1a), (h1b,k1b), etc. are the Miller indicies. The first list
-        in the example indicates that three peaks were combined to give the sum
-        of I1 with sigma1 error. The second list means two peaks were combined.
-        """
-        for c in comb:
-            self.comb_peaks.add_peak(hs=c[0], ks=c[1], I=c[2], sigma=c[3])
     
     def show_mask(self):
         """Show the mask array."""
@@ -223,6 +166,14 @@ class BaseRipple(object):
         """Model method needs to be defined in the subclasses"""
         self.phase = np.sign(self._model_F())
         self.phase = self.phase.astype(int)
+        
+    def flip_phase(self, h, k):
+        """Flip the phase factor of the (h,k) order"""
+        self.phase[(self.h==h)&(self.k==k)] *= -1
+        
+    def get_phase(self, h, k):
+        """Get the phase factor of the (h,k) order"""
+        return self.phase[(self.h==h)&(self.k==k)]
        
     def apply_Lorentz_correction(self, I):
         """Apply the Lorentz correction to the input intensity and return it. 
@@ -271,8 +222,8 @@ class BaseRipple(object):
         print("\nTotal chi^2 = {0: .0f}".format(np.sum(chi_square)))
   
     def report_calc_lattice(self):
-        """Show the calculated (fitted) q values for each peak along with the input
-        data."""
+        """Show the calculated (fitted) q values for each peak along with 
+        the input data."""
         print(" h  k  q_obs q_calc")
         q_calc = np.sqrt(self.q_square())
         for a, b, c, d in zip(self.h, self.k, self.q, q_calc):
@@ -330,43 +281,17 @@ class BaseRipple(object):
 
     def fit_edp(self):
         """Start a non-linear least squared fit for electron density profile."""
+        self._set_qxqz()
         self.edp = minimize(self._residual_edp, self.edp_par)
         self._set_phase()
     
     def _residual_edp(self, params):
         """Return the individual residuals."""
-        h, k, I, s = self.comb_peaks.get_all_hkIsigma()
-        self._set_qxqz(np.append(self.h, np.array(h)), 
-                       np.append(self.k, np.array(k)))
-        
         model = self._model_intrinsic_I()
-        
-        #Split the model to indivial and combined peaks
-        model_indiv = model[0:len(self.h)]
-        model_comb = model[len(self.h):]
-        
-        # Apply the mask
-        model_indiv = model_indiv[self.mask]
-        
-        # Combine peaks according to prescription given by CombinedPeaks object
-        model_comb = self.comb_peaks.shrink(model_comb)
-        
-        model = np.append(model_indiv, model_comb)
-        
-        # Apply the mask to data points for individual peaks
-        data = self.I[self.mask]
-        sigma = self.sigma[self.mask]
-        data = np.append(data, I)
-        sigma = np.append(sigma, s)
-
+        data = self.I
+        sigma = self.sigma
         return (data-model) / sigma 
-            
-        # The following three lines do not reproduce Sun's results, which proves
-        # that the fits were done through intensity, not form factor.
-        #data = self.F
-        #model = np.absolute(self._model())
-        #return (data - model) 
-  
+          
     def _model_observed_I(self):
         """Apply the Lorentz factors to |model F|^2. Then return the properly 
         scaled, calculated observed intensity. After a fit is performed, this
@@ -413,8 +338,7 @@ class BaseRipple(object):
                 f.write("{0: 1d} {1: 1d} {2: .3f} {3: 7.2f} {4: 7.2f}\n".format(a, b, c, d, e))
 
     def export_model_I(self, outfilename="best_fit_I.dat"):
-        """
-        Export the observed intensity calculated from a model as an ASCII file 
+        """Export the observed intensity calculated from a model as an ASCII file 
         consisting of nine columns.
         """
         chi_square = ((self._model_intrinsic_I()-self.I) / self.sigma) ** 2
@@ -446,7 +370,7 @@ class BaseRipple(object):
             for a, b, c in zip(self.h, self.k, self.phase):
                 f.write("{0: 1d} {1: 1d} {2: 1d}\n".format(a, b, c))
       
-    def export_EDM(self, filename="EDM.dat", xmin=150, xmax=150, zmin=-100,
+    def export_EDM(self, filename="EDM.dat", xmin=-150, xmax=150, zmin=-100,
                    zmax=100, N=201):
         """Export the Fourier-reconstructed 2D electron density map (EDM) as 
         an ASCII file consisting of three columns, x, z, and ED. 
@@ -483,17 +407,19 @@ class BaseRipple(object):
         the CW direction from the z-axis in the x-z plane. center specifies 
         about what position the plot is made. 
         Call plt.show() or plt.show(block=False) to actually display the plot.
-	
-	      length: the total length in Angstrom, symmetric about center.
+	    
+        Parameters
+        ==========
+        length: the total length in Angstrom, symmetric about center.
         stepsize: the step size in Angstrom in x.
           
-        Example: 
-	
-	      plot_EDP(center=(0,0), angle=-10, length=60, stepsize=1)
+        Example 
+        =======
+        plot_EDP(center=(0,0), angle=-10, length=60, stepsize=1)
           
-	      will plot the EDP about (x,z)=(0,0), along a line making 10 degrees
-	      in CCW from the z-axis, with +/-30 Angstrom above and below the
-	      center, calculated every Angstrom.
+        will plot the EDP about (x,z)=(0,0), along a line making 10 degrees
+        in CCW from the z-axis, with +/-30 Angstrom above and below the
+        center, calculated every Angstrom.
         """
         return self.edm.plot_EDP_angle(center, angle, length, stepsize, self.phase*self.F)
     
@@ -727,9 +653,7 @@ class Sawtooth(BaseRipple):
     self.edp_par.add('f2', value=0, vary=False)
   
   def F_model(self):
-    """
-    Ripple form factor
-    """
+    """Ripple form factor"""
     f1 = self.edp_par['f1'].value
     f2 = self.edp_par['f2'].value
     common_scale = self.edp_par['common_scale'].value
@@ -953,7 +877,7 @@ class S1G(Sawtooth):
     
     return rho_H_major, Z_H_major, sigma_H_major, rho_M_major, sigma_M_major, psi_major
     
-  def unpack_minor(self):433 
+  def unpack_minor(self): 
     rho_H_minor = self.edp_par['rho_H_minor'].value
     Z_H_minor = self.edp_par['Z_H_minor'].value
     sigma_H_minor = self.edp_par['sigma_H_minor'].value
@@ -1081,7 +1005,8 @@ def most_flat_profile(rip):
     mydict = {}
     best = 10**10
     # Grab indices for h = 6 orders
-    index = np.where(rip.h==6)
+    #index = np.where((rip.h==6)|(rip.h==7)|(rip.h==9))
+    index = np.where((rip.h==5))
     # There are N possible combinations for the phase factors
     N = 2**len(index[0])
     # Basic idea: convert i to binary string s. This loop will go through
