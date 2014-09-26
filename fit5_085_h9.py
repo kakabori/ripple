@@ -64,3 +64,9 @@ m2g.export_EDP_between_two_points("fits/fit5_EDP_14.txt", start=(-95,39), end=(-
 m2g.export_EDP_between_two_points("fits/fit5_EDP_15.txt", start=(-55,18), end=(50,39), N=106)
 m2g.export_EDP_between_two_points("fits/fit5_EDP_16.txt", start=(50,39), end=(90,18), N=41)
 m2g.export_EDP_between_two_points("fits/fit5_EDP_17.txt", start=(90,18), end=(145,29), N=56)
+
+
+# test
+h, k, F, sigma_F = read_data_4_columns("form_factor/085_ver6.dat")
+m2g.F = F
+m2g.sigma_F = sigma_F

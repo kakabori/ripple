@@ -12,7 +12,61 @@ import random
 
 # A module-level global variable
 wavelength = 1.175
- 
+
+def read_data_4_columns(filename):
+    """Read a four-column ASCII file and parse each column into a python list.
+    Lines starting with # will be ignored, i.e., # signals a comment line.
+    
+    filename: input file name
+    
+    The input file must be formatted as "h k F sigma_F", where 
+    h, k: ripple main and side peak index
+    F: form factor
+    sigma_F: uncertainty in F
+    
+    For example, an input file should look like:
+    
+    # Example 1
+    # =========
+    # Comment goes here
+    # Another comment line
+    h  k      q      I  sigma
+    1 -1  0.107   78.9    8.1
+    1  0  0.100  100.0   10.0
+    2  0  0.200   45.6    6.9
+    2  1  0.205   56.7    8.0
+    """
+    # Process comment and header lines
+    fileobj = open(filename, 'r')
+    while True:
+        s = fileobj.readline()
+        if s.startswith('#'):
+            print(s),
+            continue
+        elif s.startswith('h'):
+            break
+        else:
+            print("Any comments (including an empty line) should start with #.")
+            print("Please fix your input file.")
+            sys.exit(1)
+    print("")
+    
+    # Go through data points  
+    hl = []; kl = []; Fl = []; sl =[]; 
+    lines = fileobj.readlines()
+    for line in lines:
+        # This ignores an empty line
+        line = line.rstrip()
+        if not line: 
+            continue
+        h, k, F, s = line.split()
+        h = int(h)
+        k = int(k)
+        F = float(F)
+        s = float(s)
+        hl.append(h); kl.append(k); Fl.append(F); sl.append(s)      
+    return hl, kl, Fl, sl
+     
 def read_data_5_columns(filename="ripple_082-085.dat"):
     """Read a five-column ASCII file and parse each column into a python list.
     Lines starting with # will be ignored, i.e., # signals a comment line.
@@ -119,12 +173,13 @@ class BaseRipple(object):
           which peaks are combined to give the value of F. 
     """
     def __init__(self, h, k, q=None, I=None, sigma=None, D=58, lambda_r=140, 
-                 gamma=1.7):
+                 gamma=1.7, F=None, sigma_F=None):
         self.h = np.array(h, int)
         self.k = np.array(k, int)
         self.q = np.array(q, float)
         self.I = np.array(I, float)
-        self.F = sqrt(np.array(I, float))
+        if F is None:
+            self.F = sqrt(np.array(I, float))
         self.phase = np.ones(self.F.size)
         self.sigma = np.array(sigma, float)
         self.latt_par = Parameters()
@@ -1113,7 +1168,7 @@ def resample_EDP(r, num=10000):
     r: ripple object.
     N: number of resampling. The higher N is, the smoother the result is.
     """
-    origin = (0, 0)
+    origin = (10, 2.1)
     angle = -11.8
     length = 100
     stepsize = 0.1
@@ -1132,7 +1187,7 @@ def resample_EDP(r, num=10000):
         zpoints = slope * xpoints + intercept  
         
     mylist = []      
-    F_resample = generate_gauss_array(r.F, r.sigma_F, num)
+    F_resample = generate_gauss_array(r.phase*r.F, r.sigma_F, num)
     for F in F_resample:
         DIST, EDP = calc_EDP(xpoints, zpoints, origin, r.qx, r.qz, F)
         mylist.append(EDP)
