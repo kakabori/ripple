@@ -1099,18 +1099,47 @@ def linear(s=1, s_sigma=0.1, i=1, i_sigma=0.1):
     std = y.std(axis=0)
     plt.errorbar(x, mean, yerr=std, linestyle="None")
 
-def resample_EDP(r):
+def resample_EDP(r, num=10000):
     """
-    Resample the ripple EDP.
+    Monte-Carlo-resample the ripple EDP.
     
-    r is ripple object.
+    Given form factors and corresponding uncertainties,
+    this method randomly resamples the form factors averaging about
+    the existing form factors, following Gaussian distributions
+    with their sigma equal to the existing uncertainties.
+    
+    Input
+    =====
+    r: ripple object.
+    N: number of resampling. The higher N is, the smoother the result is.
     """
-    F_resample = generate_gauss_array(r.F, r.sigma_F)
-    row, col = F_resample.shape
-    for c in range(col):
-        DIST, EDP = calc_EDP(xpoints, zpoints, origin, r.qx, r.qz, 
-                             F_resample[:, c])
+    origin = (0, 0)
+    angle = -11.8
+    length = 100
+    stepsize = 0.1
+    x, z = origin
+    N = length/stepsize + 1
+    angle = angle*pi/180 
+    if angle==0:
+        # If angle is zero, the slope is infinite. 
+        # In this case, x is constant.
+        xpoints = x * np.ones(N)
+        zpoints = np.linspace(z-length/2, z+length/2, N)
+    else:
+        slope = 1 / tan(angle)
+        intercept = z - slope*x
+        xpoints = np.linspace(x-length*sin(angle)/2, x+length*sin(angle)/2, N)
+        zpoints = slope * xpoints + intercept  
         
+    mylist = []      
+    F_resample = generate_gauss_array(r.F, r.sigma_F, num)
+    for F in F_resample:
+        DIST, EDP = calc_EDP(xpoints, zpoints, origin, r.qx, r.qz, F)
+        mylist.append(EDP)
+    mylist = np.array(mylist)
+    mean = mylist.mean(axis=0)
+    std = mylist.std(axis=0)
+    plt.errorbar(DIST, mean, yerr=std, linestyle="None")        
     
 def calc_EDP(xpoints, zpoints, origin, qx, qz, F):
     """Calculate 1D electron density profile from two dimensional 
@@ -1129,25 +1158,24 @@ def calc_EDP(xpoints, zpoints, origin, qx, qz, F):
         EDP.append(tmp.sum())  
     return DIST, EDP 
 
-def generate_gauss_array(F, sigma):
+def generate_gauss_array(F, sigma, N=10000):
     """Generate an array whose element follows a normal distribution
     
-    Return object is a two-dimensional numpy array with each row 
-    corresponding to normally distributed points about each element in F.
+    Return object is a 2D numpy arrays with each row 
+    corresponding to an instance of resampled input F.
     
     example
     =======
     If input arrays are F = [1,20,300] and sigma=[0.1,2,30],
-    returned numpy array will look something like
-    [
-    [1.1, 0.9, 1.2, ...]
-    [20, 21, 18, ...]
-    [315, 299, 342, ...]
-    ]
+    returned list will look something like
+    [[1.1, 20, 315],
+     [0.9, 21, 299],
+     [1.2, 18, 342],
+     ...]
     """
-    N = 10000
-    ret = []
+    tmp = []
     for f, s in zip(F, sigma):
-        tmp = np.random.normal(f, s, N)
-        ret.append(tmp)
-    return np.array(ret)
+        tmp.append(np.random.normal(f, s, N))
+    tmp = np.array(tmp)
+    return np.transpose(tmp)
+    
