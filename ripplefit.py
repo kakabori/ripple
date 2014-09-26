@@ -8,20 +8,10 @@ from lmfit import minimize, Parameters
 import lmfit
 from scipy import ndimage
 import math
+import random
 
 # A module-level global variable
 wavelength = 1.175
-  
-class Peak(object):
-  def __init__(self, hs, ks, I, sigma=1):
-    if len(hs) == len(ks):
-      self.hs = np.array(hs, int)
-      self.ks = np.array(ks, int)
-      self.I = float(I)
-      self.sigma = float(sigma)
-    else:
-      print("Dude, length of hs and ks are different")
-
  
 def read_data_5_columns(filename="ripple_082-085.dat"):
     """Read a five-column ASCII file and parse each column into a python list.
@@ -439,6 +429,10 @@ class BaseRipple(object):
         self.edm.F = self.phase * self.F
         return self.edm.get_EDP_endpoints(start, end, N)
         
+    def get_EDP_angle(self, center, angle, length, stepsize):
+        self.edm.F = self.phase * self.F
+        return self.edm.get_EDP_angle(center, angle, length, stepsize)
+        
     def plot_model_EDP(self, center=(0,0), angle=0, length=60, stepsize=0.5):
         self.edm.plot_EDP_angle(center, angle, length, stepsize, self._model_F())
         
@@ -529,6 +523,23 @@ class ElectronDensityMap(object):
         xpoints = np.linspace(x0, x1, N)
         zpoints = np.linspace(z0, z1, N)
         return self._plot_EDP(xpoints, zpoints, start, F, filename)
+    
+    def get_EDP_angle(self, center, angle, length, stepsize, error_bar=True):
+        x, z = center
+        N = length/stepsize + 1
+        angle = angle*pi/180 
+        if angle==0:
+            # If angle is zero, the slope is infinite. 
+            # In this case, x is constant.
+            xpoints = x * np.ones(N)
+            zpoints = np.linspace(z-length/2, z+length/2, N)
+        else:
+            slope = 1 / tan(angle)
+            intercept = z - slope*x
+            xpoints = np.linspace(x-length*sin(angle)/2, x+length*sin(angle)/2, N)
+            zpoints = slope * xpoints + intercept
+        X, Z, DIST, EDP = self._calc_EDP(xpoints, zpoints, center)
+        return X, Z, DIST, EDP          
             
     def plot_EDP_angle(self, center, angle, length, stepsize, F, filename=None):
         x, z = center
@@ -1018,7 +1029,8 @@ def most_flat_profile(rip):
         a[a==0] = -1
         # Replace a subset of the phase factors with a generated combination
         rip.phase[index] = a       
-        X, Z, DIST, ED = rip.get_EDP_between_two_points(start=(-40,21), end=(40,38), N=161)
+        X, Z, DIST, ED = rip.get_EDP_between_two_points(start=(-40,21), 
+                                                        end=(40,38), N=161)
         if flatness(ED) < best:
             best = flatness(ED)
             best_array = a
@@ -1040,11 +1052,102 @@ def generate_binary_string(n, N):
     return ret
   
 def symmetry(x):
+    symm = 0
     center = np.argmin(x)
-    for i in xrange(1,301):
-        left = x[center-i]
-        right = x[center+i]
+    left_side = x[center-1::-1]
+    right_side = x[center+1:]
+    for i, j in zip(left_side, right_side):
+        symm = symm + (i - j)**2
+    return symm
     
+def most_symmetric_profile(rip, val):
+    mydict = {}
+    best = 10**10
+    # Grab indices 
+    #index = np.where((rip.h==6)|(rip.h==7)|(rip.h==9))
+    index = np.where((rip.h==val))
+    # There are N possible combinations for the phase factors
+    N = 2**len(index[0])
+    # Basic idea: convert i to binary string s. This loop will go through
+    # all N possible combinations. 
+    for i in xrange(N):
+        s = generate_binary_string(i, N-1)
+        a = np.array(binary_string_to_list(s), int)
+        # Change binary 0 to phase factor -1
+        a[a==0] = -1
+        # Replace a subset of the phase factors with a generated combination
+        rip.phase[index] = a       
+        X, Z, DIST, ED = rip.get_EDP_angle(center=(10,2.1), angle=-11.8, 
+                                           length=100, stepsize=0.1)
+        if symmetry(ED) < best:
+            best = symmetry(ED)
+            best_array = a
+        mydict[s] = symmetry(ED)
+    rip.phase[index] = best_array
+    return mydict, best_array, best
     
-def most_symmetric_profile(rip):
-    pass
+###############################################################################
+def linear(s=1, s_sigma=0.1, i=1, i_sigma=0.1):
+    N = 1000
+    x = np.linspace(-50,50,101)
+    y = np.zeros((N,101))
+    for index in range(N):
+        slope = random.gauss(s, s_sigma)
+        intercept = random.gauss(i, i_sigma)
+        y[index] = slope*x + intercept
+    mean = y.mean(axis=0)
+    std = y.std(axis=0)
+    plt.errorbar(x, mean, yerr=std, linestyle="None")
+
+def resample_EDP(r):
+    """
+    Resample the ripple EDP.
+    
+    r is ripple object.
+    """
+    F_resample = generate_gauss_array(r.F, r.sigma_F)
+    row, col = F_resample.shape
+    for c in range(col):
+        DIST, EDP = calc_EDP(xpoints, zpoints, origin, r.qx, r.qz, 
+                             F_resample[:, c])
+        
+    
+def calc_EDP(xpoints, zpoints, origin, qx, qz, F):
+    """Calculate 1D electron density profile from two dimensional 
+    diffraction peak intensity data, at points specified by 
+    xpoints and zpoints arrays.
+    
+    qx, qz, and F must be numpy arrays.
+    """
+    x0, z0 = origin
+    EDP = []
+    DIST = []
+    for x, z in zip(xpoints, zpoints):
+        tmp = F * np.cos(qx*x+qz*z)
+        dist = np.sign(z-z0)*np.sqrt((x-x0)**2 + (z-z0)**2)
+        DIST.append(dist)
+        EDP.append(tmp.sum())  
+    return DIST, EDP 
+
+def generate_gauss_array(F, sigma):
+    """Generate an array whose element follows a normal distribution
+    
+    Return object is a two-dimensional numpy array with each row 
+    corresponding to normally distributed points about each element in F.
+    
+    example
+    =======
+    If input arrays are F = [1,20,300] and sigma=[0.1,2,30],
+    returned numpy array will look something like
+    [
+    [1.1, 0.9, 1.2, ...]
+    [20, 21, 18, ...]
+    [315, 299, 342, ...]
+    ]
+    """
+    N = 10000
+    ret = []
+    for f, s in zip(F, sigma):
+        tmp = np.random.normal(f, s, N)
+        ret.append(tmp)
+    return np.array(ret)

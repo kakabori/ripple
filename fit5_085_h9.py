@@ -44,7 +44,6 @@ m2g.fit_edp()
 #m2g.export_phases("fits/fit5_phases.txt")
 
 # Plot EDP on a line with xiM = 12 degrees
-
 m2g.export_EDP("fits/fit5_EDP_0.txt", center=(0,0), angle=-11.8, length=100, stepsize=0.1)
 m2g.export_EDP("fits/fit5_EDP_1.txt", center=(10,2.1), angle=-11.8, length=100, stepsize=0.1)
 m2g.export_EDP("fits/fit5_EDP_2.txt", center=(20,4.3), angle=-11.8, length=100, stepsize=0.1)
