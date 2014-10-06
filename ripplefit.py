@@ -13,6 +13,37 @@ import random
 # A module-level global variable
 wavelength = 1.175
 
+def read_data_3_columns(filename):
+    # Process comment and header lines
+    fileobj = open(filename, 'r')
+    while True:
+        s = fileobj.readline()
+        if s.startswith('#'):
+            print(s),
+            continue
+        elif s.startswith('h'):
+            break
+        else:
+            print("Any comments (including an empty line) should start with #.")
+            print("Please fix your input file.")
+            sys.exit(1)
+    print("")
+    
+    # Go through data points  
+    hl = []; kl = []; pl = []; 
+    lines = fileobj.readlines()
+    for line in lines:
+        # This ignores an empty line
+        line = line.rstrip()
+        if not line: 
+            continue
+        h, k, p = line.split()
+        h = int(h)
+        k = int(k)
+        p = int(p)
+        hl.append(h); kl.append(k); pl.append(p);       
+    return hl, kl, pl
+    
 def read_data_4_columns(filename):
     """Read a four-column ASCII file and parse each column into a python list.
     Lines starting with # will be ignored, i.e., # signals a comment line.
@@ -154,6 +185,7 @@ def nonblank_lines(f):
         line = l.rstrip()
         if line:
             yield line
+        
 
 ###############################################################################
 class BaseRipple(object):
@@ -186,26 +218,13 @@ class BaseRipple(object):
         self.latt_par.add('D', value=D, vary=True)
         self.latt_par.add('lambda_r', value=lambda_r, vary=True)
         self.latt_par.add('gamma', value=gamma, vary=True)
-        self.mask = np.ones(self.h.size, dtype=bool)
         self._set_qxqz()
-        self.edm = ElectronDensityMap()
-        self.edm.qx = self.qx
-        self.edm.qz = self.qz
-        self.edm.F = self.phase * self.F
-    
-    def show_mask(self):
-        """Show the mask array."""
-        print(" h  k  mask")
-        for a, b, c in zip(self.h, self.k, self.mask):
-            print("{0: 1d} {1: 1d}  {2:s}".format(a, b, c))
-      
-    def set_mask(self, h, k, value):
-        """Set a mask element to True/False"""
-        self.mask[(self.h==h)&(self.k==k)] = value
-      
-    def get_mask(self, h, k):
-        """Get a mask element"""
-        return self.mask[(self.h==h)&(self.k==k)]
+        self.edm = ElectronDensityMap(h, k, self.qx, self.qz, self.phase*self.F)
+       
+    def set_phase(self, h, k, phase):
+        self.h = h
+        self.k = k
+        self.phase = phase
     
     def _set_phase(self):
         """Model method needs to be defined in the subclasses"""
@@ -329,6 +348,7 @@ class BaseRipple(object):
         self._set_qxqz()
         self.edp = minimize(self._residual_edp, self.edp_par)
         self._set_phase()
+        self.edm.update(self.h, self.k, self.qx, self.qz, self.phase*self.F)
     
     def _residual_edp(self, params):
         """Return the individual residuals."""
@@ -422,29 +442,28 @@ class BaseRipple(object):
         Calculate ED at N points along x and N points along z. The units are 
         in Angstrom.
         """
-        self.edm.plot_EDM(xmin, xmax, zmin, zmax, N, self.phase*self.F, filename)
+        self.edm.plot_EDM(xmin, xmax, zmin, zmax, N, filename)
       
     def plot_EDM(self, xmin=-150, xmax=150, zmin=-100, zmax=100, N=201):
         """Plot an experimental 2D electron density map. Calculate
         EDM on an N by N grid. The units are in Angstrom.
         """    
-        self.edm.plot_EDM(xmin, xmax, zmin, zmax, N, self.phase*self.F)
+        self.edm.plot_EDM(xmin, xmax, zmin, zmax, N)
 
-    def plot_model_EDM(self, xmin=-150, xmax=150, zmin=-100, zmax=100, N=201):
-        """Plot a model 2D electron density map. Calculate
-        EDM on an N by N grid. The units are in Angstrom.
-        """    
-        self.edm.plot_EDM(xmin, xmax, zmin, zmax, N, self._model_F())
+#    def plot_model_EDM(self, xmin=-150, xmax=150, zmin=-100, zmax=100, N=201):
+#        """Plot a model 2D electron density map. Calculate
+#        EDM on an N by N grid. The units are in Angstrom.
+#        """    
+#        self.edm.plot_EDM(xmin, xmax, zmin, zmax, N, self._model_F())
 
     def export_EDP(self, filename="EDP.dat", center=(0,0), angle=-10, 
                    length=60, stepsize=0.5):
-        self.edm.plot_EDP_angle(center, angle, length, stepsize, self.phase*self.F, 
-                                filename)
+        self.edm.plot_EDP_angle(center, angle, length, stepsize, filename)
   
-    def export_model_EDP(self, filename="model_EDP.dat", center=(0.0), angle=-10, 
-                         length=60, stepsize=0.5):
-        self.edm.plot_EDP_angle(center, angle, length, stepsize, self._model_F(), 
-                                filename)
+#    def export_model_EDP(self, filename="model_EDP.dat", center=(0.0), angle=-10, 
+#                         length=60, stepsize=0.5):
+#        self.edm.plot_EDP_angle(center, angle, length, stepsize, self._model_F(), 
+#                                filename)
   
     def plot_EDP(self, center=(0,0), angle=-10, length=60, stepsize=0.5):
         """Plot EDP along a line making an angle in degrees with respect to 
@@ -466,30 +485,28 @@ class BaseRipple(object):
         in CCW from the z-axis, with +/-30 Angstrom above and below the
         center, calculated every Angstrom.
         """
-        return self.edm.plot_EDP_angle(center, angle, length, stepsize, self.phase*self.F)
+        return self.edm.plot_EDP_angle(center, angle, length, stepsize)
     
     def plot_EDP_between_two_points(self, start, end, N):
         """Plot an experimental EDP along a line connecting two points 
         secified by start and end, on N points. 
         """  
-        return self.edm.plot_EDP_endpoints(start, end, N, self.phase*self.F)
+        return self.edm.plot_EDP_endpoints(start, end, N)
 
     def export_EDP_between_two_points(self, filename, start, end, N):
         """Export an experimental EDP along a line connecting two points 
         secified by start and end, on N points, as an ASCII file.
         """
-        self.edm.plot_EDP_endpoints(start, end, N, self.phase*self.F, filename)
+        self.edm.plot_EDP_endpoints(start, end, N, filename)
     
     def get_EDP_between_two_points(self, start, end, N):
-        self.edm.F = self.phase * self.F
         return self.edm.get_EDP_endpoints(start, end, N)
         
     def get_EDP_angle(self, center, angle, length, stepsize):
-        self.edm.F = self.phase * self.F
         return self.edm.get_EDP_angle(center, angle, length, stepsize)
         
-    def plot_model_EDP(self, center=(0,0), angle=0, length=60, stepsize=0.5):
-        self.edm.plot_EDP_angle(center, angle, length, stepsize, self._model_F())
+#    def plot_model_EDP(self, center=(0,0), angle=0, length=60, stepsize=0.5):
+#        self.edm.plot_EDP_angle(center, angle, length, stepsize, self._model_F())
         
     def export_headgroup_positions(self, filename="temp.txt"): 
         """Export an ASCII file containing headgroup positions in both lower
@@ -522,11 +539,20 @@ class ElectronDensityMap(object):
     this class will be used inside the BaseRipple class, and deals with
     anything related to an electron density map. 
     """      
-    def __init__(self):
-        pass
+    def __init__(self, h, k, qx, qz, F):
+        self.data = Data(h, k, qx, qz, F)
+        
+    def update(self, h, k, qx, qz, F):
+        self.data = Data(h, k, qx, qz, F)
                    
-    def plot_EDM(self, xmin, xmax, zmin, zmax, N, F, filename=None):
-        X, Y, Z = self._calc_EDM(xmin, xmax, zmin, zmax, N, F)
+    def plot_EDM(self, xmin, xmax, zmin, zmax, N, filename=None):
+        """
+        Plot electron density map. 
+        If filename is given, export EDM as an ASCII file instead.
+        """
+        # X and Y are x and z coordinates, respectively
+        # Z is calclated electron densities at points (x, z)
+        X, Y, Z = self._calc_EDM(xmin, xmax, zmin, zmax, N)
         if filename is None:
             X.shape = (N, N)
             Y.shape = (N, N)
@@ -541,7 +567,7 @@ class ElectronDensityMap(object):
                 for x, y, z in zip(X, Y, Z):
                     f.write("{0: 3.1f} {1: 3.1f} {2: }\n".format(x, y, z))
                 
-    def _calc_EDM(self, xmin, xmax, zmin, zmax, N, F):
+    def _calc_EDM(self, xmin, xmax, zmin, zmax, N):
         """Fourier-reconstruct a 2D map of the electron density profile and return
         as Z on (X,Y) grids. Calculate EDP at N points along x and N points along z. 
         The units are in Angstrom.
@@ -550,10 +576,12 @@ class ElectronDensityMap(object):
         """
         rho_xz = []
         xgrid = np.linspace(xmin, xmax, num=N)
-        zgrid = np.linspace(zmin, zmax, num=N)  
+        zgrid = np.linspace(zmin, zmax, num=N)
+        F = data.form_factors()
+        qx, qz = data.qx_qz()
         for x in xgrid:
             for z in zgrid:
-                tmp = F * np.cos(self.qx*x+self.qz*z)
+                tmp = F * np.cos(qx*x+qz*z)
                 rho_xz.append([x, z, tmp.sum(axis=0)])
         rho_xz = np.array(rho_xz, float)  
         X, Y, Z= rho_xz[:,0], rho_xz[:,1], rho_xz[:,2]
@@ -577,7 +605,7 @@ class ElectronDensityMap(object):
         x1, z1 = end
         xpoints = np.linspace(x0, x1, N)
         zpoints = np.linspace(z0, z1, N)
-        return self._plot_EDP(xpoints, zpoints, start, F, filename)
+        return self._plot_EDP(xpoints, zpoints, start, filename)
     
     def get_EDP_angle(self, center, angle, length, stepsize, error_bar=True):
         x, z = center
@@ -596,7 +624,7 @@ class ElectronDensityMap(object):
         X, Z, DIST, EDP = self._calc_EDP(xpoints, zpoints, center)
         return X, Z, DIST, EDP          
             
-    def plot_EDP_angle(self, center, angle, length, stepsize, F, filename=None):
+    def plot_EDP_angle(self, center, angle, length, stepsize, filename=None):
         x, z = center
         N = length/stepsize + 1
         angle = angle*pi/180 
@@ -610,10 +638,10 @@ class ElectronDensityMap(object):
             intercept = z - slope*x
             xpoints = np.linspace(x-length*sin(angle)/2, x+length*sin(angle)/2, N)
             zpoints = slope * xpoints + intercept    
-        return self._plot_EDP(xpoints, zpoints, center, F, filename)     
+        return self._plot_EDP(xpoints, zpoints, center, filename)     
     
-    def _plot_EDP(self, xarray, zarray, center, F, filename):
-        self.F = F
+    def _plot_EDP(self, xarray, zarray, center, filename):
+        F = self.data.form_factors()
         X, Z, DIST, EDP = self._calc_EDP(xarray, zarray, center)
         if filename is None:
             plt.figure()
@@ -625,10 +653,13 @@ class ElectronDensityMap(object):
                     f.write("{0: 3.1f} {1: 3.1f} {2: 3.1f} {3: }\n".format(x, z, dist, edp))
         return X, Z, DIST, EDP
         
-    def _calc_EDP(self, xpoints, zpoints, (xM,z0)):
+    def _calc_EDP(self, xpoints, zpoints, center):
+        xM, z0 = center
         rho = []
+        F = self.data.form_factors()
+        qx, qz = self.data.qx_qz()
         for x, z in zip(xpoints, zpoints):
-            tmp = self.F * np.cos(self.qx*x+self.qz*z)
+            tmp = F * np.cos(qx*x+qz*z)
             dist = np.sign(z-z0)*np.sqrt((x-xM)**2 + (z-z0)**2)
             rho.append([x, z, dist, tmp.sum(axis=0)])
         rho = np.array(rho, float)
@@ -706,7 +737,76 @@ class ElectronDensityMap(object):
             tmp = tmp + F * cos(qx*x_array+qz*z_array)
         return tmp
     
-              
+
+###############################################################################
+class Data(object):
+    """
+    This class implements a convenient access to X-ray form factor data 
+    points by allowing a user to specify which data points are masked. 
+    
+    All variables are numpy objects with the same length.
+    h, k : Miller indices
+    qx, qz : qx and qz values
+    F : signed form factor
+    mask: specify which data points are returned in method calls
+    
+    For the mask variable, it accepts boolean. When data points 
+    are set to True, returned arrays such as F exclude those points.
+    """
+    def __init__(self, h, k, qx, qz, F):
+        """
+        Inputs should be lists. They are stored as numpy arrays.
+        
+        h, k : Miller indices
+        qx, qz : corresponding qx and qz values
+        F : signed form factors
+        """
+        self.h = np.array(h, int)
+        self.k = np.array(k, int)
+        self.qx = np.array(qx, float)
+        self.qz = np.array(qz, float)
+        self.F = np.array(F, float)
+        self.mask = np.zeros(len(h), bool)     
+    
+    def F(self, use_mask=True):
+        return self.form_factors(use_mask)
+            
+    def form_factors(self, use_mask=True):
+        if use_mask is True:
+            F = self.F[~self.mask]
+        else:
+            F = self.F 
+        return F
+           
+    def Miller_indices(self, use_mask=True):
+        if use_mask is True:
+            h = self.h[~self.mask]
+            k = self.k[~self.mask]
+        else:
+            h = self.h
+            k = self.k
+        return h, k
+    
+    def qx_qz(self, use_mask=True):
+        if use_mask is True:
+            qx = self.qx[~self.mask]
+            qz = self.qz[~self.mask] 
+        else:
+            qx = self.qx
+            qz = self.qz
+        return qx, qz        
+               
+    def set_mask(self, value, h, k=None):
+        if k is None:
+            self.mask[(self.h==h)] = value
+        else:
+            self.mask[(self.h==h)&(self.k==k)] = value
+        
+    def show_data(self):
+        for h, k, F, mask in zip(self.h, self.k, self.F, self.mask):
+            print(h, k, F, mask)
+            
+                          
 ###############################################################################
 class Sawtooth(BaseRipple):
   def __init__(self, h, k, q, I, sigma, D=57.8, lambda_r=145, gamma=1.71, 
