@@ -546,8 +546,7 @@ class ElectronDensityMap(object):
         self.data = Data(h, k, qx, qz, F)
                    
     def plot_EDM(self, xmin, xmax, zmin, zmax, N, filename=None):
-        """
-        Plot electron density map. 
+        """Plot electron density map. 
         If filename is given, export EDM as an ASCII file instead.
         """
         # X and Y are x and z coordinates, respectively
@@ -740,8 +739,7 @@ class ElectronDensityMap(object):
 
 ###############################################################################
 class Data(object):
-    """
-    This class implements a convenient access to X-ray form factor data 
+    """This class implements a convenient access to X-ray form factor data 
     points by allowing a user to specify which data points are masked. 
     
     All variables are numpy objects with the same length.
@@ -754,8 +752,7 @@ class Data(object):
     are set to True, returned arrays such as F exclude those points.
     """
     def __init__(self, h, k, qx, qz, F):
-        """
-        Inputs should be lists. They are stored as numpy arrays.
+        """Inputs should be lists. They are stored as numpy arrays.
         
         h, k : Miller indices
         qx, qz : corresponding qx and qz values
@@ -767,9 +764,6 @@ class Data(object):
         self.qz = np.array(qz, float)
         self.F = np.array(F, float)
         self.mask = np.zeros(len(h), bool)     
-    
-    def F(self, use_mask=True):
-        return self.form_factors(use_mask)
             
     def form_factors(self, use_mask=True):
         if use_mask is True:
