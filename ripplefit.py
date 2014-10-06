@@ -51,9 +51,9 @@ def read_data_4_columns(filename):
     filename: input file name
     
     The input file must be formatted as "h k F sigma_F", where 
-    h, k: ripple main and side peak index
-    F: form factor
-    sigma_F: uncertainty in F
+    h, k : ripple main and side peak index
+    F : form factor
+    sigma_F : uncertainty in F
     
     For example, an input file should look like:
     
@@ -198,13 +198,8 @@ class BaseRipple(object):
     I: observed intensity of each peak, before geometric correction
     D, lambda_r, gamma: D-spacing, ripple wavelength, and oblique angle
     sigma: uncertainties in intensity (equal to sqrt(I) = F)
-    mask: mask out peaks that are set to False. Masked peak will be excluded from 
-          the nonlinear fit. Only work for individual peaks, not combined ones.
-    comb: a list of combined peaks. Each element in the list is a tuple,
-          ((list of h index), (list of k index), F), where lists of index tells
-          which peaks are combined to give the value of F. 
     """
-    def __init__(self, h, k, q=None, I=None, sigma=None, D=58, lambda_r=140, 
+    def __init__(self, h, k, q=None, I=None, sigma_I=None, D=58, lambda_r=140, 
                  gamma=1.7, F=None, sigma_F=None):
         self.h = np.array(h, int)
         self.k = np.array(k, int)
@@ -213,7 +208,7 @@ class BaseRipple(object):
         if F is None:
             self.F = sqrt(np.array(I, float))
         self.phase = np.ones(self.F.size)
-        self.sigma = np.array(sigma, float)
+        self.sigma = np.array(sigma_I, float)
         self.latt_par = Parameters()
         self.latt_par.add('D', value=D, vary=True)
         self.latt_par.add('lambda_r', value=lambda_r, vary=True)
@@ -1328,3 +1323,24 @@ def generate_gauss_array(F, sigma, N=10000):
     tmp = np.array(tmp)
     return np.transpose(tmp)
     
+def generate_phase_varied_EDP(rip):
+    mylist = []
+    index = np.where((rip.h==6)|(rip.h==9))
+    # There are N possible combinations for the phase factors
+    N = 2**len(index[0])
+    # Basic idea: convert i to binary string s. This loop will go through
+    # all N possible combinations. 
+    for i in xrange(N):
+        s = generate_binary_string(i, N-1)
+        a = np.array(binary_string_to_list(s), int)
+        # Change binary 0 to phase factor -1
+        a[a==0] = -1
+        # Replace a subset of the phase factors with a generated combination
+        rip.phase[index] = a       
+        X, Z, DIST, ED = rip.get_EDP_between_two_points(start=(-40,21), 
+                                                        end=(40,38), N=161)
+        mylist.append(ED)
+    mylist = np.array(mylist)
+    mean = mylist.mean(axis=0)
+    std = mylist.std(axis=0)
+    return mean, std
