@@ -12,29 +12,7 @@ class ElectronDensityMap(object):
     def update_data(self, data):
         """Input is Data object"""
         self.data = data
-                   
-    def plot_EDM(self, xmin, xmax, zmin, zmax, N, data):
-        """Plot electron density map."""
-        # X and Y are x and z coordinates, respectively
-        # Z is calclated electron densities at points (x, z)
-        X, Y, Z = self.get_EDM(xmin, xmax, zmin, zmax, N, data)
-        X.shape = (N, N)
-        Y.shape = (N, N)
-        Z.shape = (N, N)
-        plt.figure()
-        rotate_Z = ndimage.rotate(Z, 90)
-        imgplot = plt.imshow(rotate_Z, extent=[-150,150,-100,100], cmap='gray')
-#        return imgplot            
-
-    
-    def export_EDM(self, xmin, xmax, zmin, zmax, N, filename, data):
-        """Export EDM as an ASCII file"""
-        X, Y, Z = self.get_EDM(xmin, xmax, zmin, zmax, N)
-        with open(filename, 'w') as f:
-            f.write("x z ED\n")
-            for x, y, z in zip(X, Y, Z):
-                f.write("{0: 3.1f} {1: 3.1f} {2: }\n".format(x, y, z))        
-                    
+                                    
     def get_EDM(self, xmin, xmax, zmin, zmax, N, data):
         """Fourier-reconstruct a 2D map of the electron density profile and return
         as Z on (X,Y) grids. Calculate EDP at N points along x and N points along z. 
@@ -63,18 +41,6 @@ class ElectronDensityMap(object):
         X, Z, DIST, EDP = self._calc_EDP(xpoints, zpoints, start)
         return X, Z, DIST, EDP
         
-    
-    def plot_EDP_endpoints(self, start, end, N, F, filename=None, data): 
-        """Plot an experimental EDP along a line connecting start 
-        and end, on N points. If filename is specified, export an
-        ASCII file instead.
-        """
-        x0, z0 = start
-        x1, z1 = end
-        xpoints = np.linspace(x0, x1, N)
-        zpoints = np.linspace(z0, z1, N)
-        return self._plot_EDP(xpoints, zpoints, start, filename)
-    
     def get_EDP_angle(self, center, angle, length, stepsize, data):
         x, z = center
         N = length/stepsize + 1
@@ -92,35 +58,6 @@ class ElectronDensityMap(object):
         X, Z, DIST, EDP = self._calc_EDP(xpoints, zpoints, center)
         return X, Z, DIST, EDP          
             
-    def plot_EDP_angle(self, center, angle, length, stepsize, filename=None, data):
-        x, z = center
-        N = length/stepsize + 1
-        angle = angle*pi/180 
-        if angle==0:
-            # If angle is zero, the slope is infinite. 
-            # In this case, x is constant.
-            xpoints = x * np.ones(N)
-            zpoints = np.linspace(z-length/2, z+length/2, N)
-        else:
-            slope = 1 / tan(angle)
-            intercept = z - slope*x
-            xpoints = np.linspace(x-length*sin(angle)/2, x+length*sin(angle)/2, N)
-            zpoints = slope * xpoints + intercept    
-        return self._plot_EDP(xpoints, zpoints, center, filename)     
-    
-    def _plot_EDP(self, xarray, zarray, center, filename, data):
-        F = self.data.form_factors()
-        X, Z, DIST, EDP = self._calc_EDP(xarray, zarray, center)
-        if filename is None:
-            plt.figure()
-            plt.plot(DIST, EDP)
-        else:
-            with open(filename, 'w') as f:
-                f.write("x z dist ED\n")
-                for x, z, dist, edp in zip(X, Z, DIST, EDP):
-                    f.write("{0: 3.1f} {1: 3.1f} {2: 3.1f} {3: }\n".format(x, z, dist, edp))
-        return X, Z, DIST, EDP
-        
     def _calc_EDP(self, xpoints, zpoints, center, data):
         xM, z0 = center
         rho = []
@@ -206,4 +143,4 @@ class ElectronDensityMap(object):
         return tmp
         
 
-###############################################################################
+

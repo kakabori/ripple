@@ -11,7 +11,7 @@ class Data(object):
     For the mask variable, it accepts boolean. When data points 
     are set to True, returned arrays such as F exclude those points.
     """
-    def __init__(self, h, k, qx, qz, F):
+    def __init__(self, h=None, k=None, qx=None, qz=None, F=None):
         """Inputs should be lists. They are stored as numpy arrays.
         
         h, k : Miller indices

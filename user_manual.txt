@@ -1,0 +1,24 @@
+Data fitting
+============
+load_data()
+
+edp_fit()
+
+
+
+Export to a text file
+=====================
+export_EDM(xmin, xmax, zmin, zmax, N, filename)
+
+export_EDP_angle(center, angle, length, stepsize, filename)
+
+export_EDP_endpoints(start, end, N, filename)
+
+
+Plot on a screen
+================
+plot_EDM(xmin, xmax, zmin, zmax, N)
+
+plot_EDP_angle(center, angle, length, stepsize)
+
+plot_EDP_endpoints(start, end, N)
