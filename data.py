@@ -1,3 +1,5 @@
+import numpy as np
+
 class Data(object):
     """This class implements a convenient access to X-ray form factor data 
     points by allowing a user to specify which data points are masked. 
@@ -18,13 +20,21 @@ class Data(object):
         qx, qz : corresponding qx and qz values
         F : signed form factors
         """
-        self.h = np.array(h, int)
-        self.k = np.array(k, int)
-        self.qx = np.array(qx, float)
-        self.qz = np.array(qz, float)
-        self.F = np.array(F, float)
-        self.mask = np.zeros(len(h), bool)     
-            
+        self.update(h, k, qx, qz, F)   
+    
+    def update(self, h=None, k=None, qx=None, qz=None, F=None):
+        if h is not None:
+            self.h = np.array(h, int)
+            self.mask = np.zeros(len(self.h), bool)
+        if k is not None:
+            self.k = np.array(k, int)
+        if qx is not None:
+            self.qx = np.array(qx, float)
+        if qz is not None:
+            self.qz = np.array(qz, float)
+        if F is not None:
+            self.F = np.array(F, float) 
+                        
     def form_factors(self, use_mask=True):
         if use_mask is True:
             F = self.F[~self.mask]
@@ -61,6 +71,6 @@ class Data(object):
             print(h, k, F, mask)
             
     def flip_phases(self, hin, kin):
-    """Input can be single integer or lists"""
+        """Input can be single integer or lists"""
         for h, k in zip(hin, kin):
             self.F[(self.h==h)&(self.k==k)] *= -1

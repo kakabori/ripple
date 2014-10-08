@@ -16,19 +16,7 @@ wavelength = 1.175
 def read_data_3_columns(filename):
     # Process comment and header lines
     fileobj = open(filename, 'r')
-    while True:
-        s = fileobj.readline()
-        if s.startswith('#'):
-            print(s),
-            continue
-        elif s.startswith('h'):
-            break
-        else:
-            print("Any comments (including an empty line) should start with #.")
-            print("Please fix your input file.")
-            sys.exit(1)
-    print("")
-    
+    comment_and_header(fileobj)  
     # Go through data points  
     hl = []; kl = []; pl = []; 
     lines = fileobj.readlines()
@@ -54,34 +42,10 @@ def read_data_4_columns(filename):
     h, k : ripple main and side peak index
     F : form factor
     sigma_F : uncertainty in F
-    
-    For example, an input file should look like:
-    
-    # Example 1
-    # =========
-    # Comment goes here
-    # Another comment line
-    h  k      q      I  sigma
-    1 -1  0.107   78.9    8.1
-    1  0  0.100  100.0   10.0
-    2  0  0.200   45.6    6.9
-    2  1  0.205   56.7    8.0
     """
     # Process comment and header lines
     fileobj = open(filename, 'r')
-    while True:
-        s = fileobj.readline()
-        if s.startswith('#'):
-            print(s),
-            continue
-        elif s.startswith('h'):
-            break
-        else:
-            print("Any comments (including an empty line) should start with #.")
-            print("Please fix your input file.")
-            sys.exit(1)
-    print("")
-    
+    comment_and_header(fileobj)      
     # Go through data points  
     hl = []; kl = []; Fl = []; sl =[]; 
     lines = fileobj.readlines()
@@ -98,21 +62,20 @@ def read_data_4_columns(filename):
         hl.append(h); kl.append(k); Fl.append(F); sl.append(s)      
     return hl, kl, Fl, sl
      
-def read_data_5_columns(filename="ripple_082-085.dat"):
+def read_data_5_columns(filename):
     """Read a five-column ASCII file and parse each column into a python list.
     Lines starting with # will be ignored, i.e., # signals a comment line.
     
     filename: input file name
     
-    The input file must be formatted as "h k q I", where 
+    The input file must be formatted as "h k q I sigma", where 
     h, k: ripple main and side peak index
     q: magnitude of scattering vector, q
     I: observed intensity
     sigma: uncertainty in intensity
-    For example, an input file should look like:
     
-    # Example 1
-    # =========
+    Example
+    =======
     # Comment goes here
     # Another comment line
     h  k      q      I  sigma
@@ -120,39 +83,12 @@ def read_data_5_columns(filename="ripple_082-085.dat"):
     1  0  0.100  100.0   10.0
     2  0  0.200   45.6    6.9
     2  1  0.205   56.7    8.0
-    
-    # Example 2 (include combined peaks)
-    # In this case, separate indices by comma without any space.
-    # The example shows a case in which different k's are combined.
-    # ==========================================================
-        h      k         q      I  sigma
-      1,1   -1,0  combined  183.4      1
-        1      1    0.1241   43.8      1
-    2,2,2 -1,0,1  combined  180.0      1
-    
-    # Example 3 (combine different h's)
-    # =======================================
-          h         k         q      I  sigma
-        1,1      -1,0  combined  183.4      1
-    1,2,2,2  1,-1,0,1  combined  223.8      1
     """
     # Process comment and header lines
     fileobj = open(filename, 'r')
-    while True:
-        s = fileobj.readline()
-        if s.startswith('#'):
-            print(s),
-            continue
-        elif s.startswith('h'):
-            break
-        else:
-            print("Any comments (including an empty line) should start with #.")
-            print("Please fix your input file.")
-            sys.exit(1)
-    print("")
-    
+    comment_and_header(fileobj)   
     # Go through data points  
-    hl = []; kl = []; ql = []; Il = []; sl =[]; combl = []
+    hl = []; kl = []; ql = []; Il = []; sl =[]
     lines = fileobj.readlines()
     counter = 1
     for line in lines:
@@ -165,20 +101,23 @@ def read_data_5_columns(filename="ripple_082-085.dat"):
         k = map(int, k.split(','))
         I = float(I)
         s = float(s)
-        if len(h) == 1 and len(k) == 1:
-            q = float(q)
-            hl.extend(h); kl.extend(k); ql.append(q); Il.append(I); sl.append(s)
-        elif len(h) != len(k):
-            print("Please check line {0} to make sure that h and k ".format(counter))
-            print("columns have the same number of items. For example,")
-            print("1,1,1 -1,0,1 to combine (1,-1), (1,0), and (1,1) peaks.")
-            sys.exit(1)
-        else:
-            combl.append((tuple(h), tuple(k), I, s))
-        counter += 1
-      
-    return hl, kl, ql, Il, sl, combl
+        q = float(q)
+        hl.extend(h); kl.extend(k); ql.append(q); Il.append(I); sl.append(s)     
+    return hl, kl, ql, Il, sl
 
+def comment_and_header(fileobj):
+    while True:
+        s = fileobj.readline()
+        if s.startswith('#'):
+            print(s),
+            continue
+        elif s.startswith('h'):
+            break
+        else:
+            print("Any comments (including an empty line) should start with #.")
+            print("Please fix your input file.")
+            sys.exit(1)
+    print("")
 
 def nonblank_lines(f):
     for l in f:
@@ -199,41 +138,19 @@ class BaseRipple(object):
     D, lambda_r, gamma: D-spacing, ripple wavelength, and oblique angle
     sigma: uncertainties in intensity (equal to sqrt(I) = F)
     """
-    def __init__(self, h, k, q=None, I=None, sigma_I=None, D=58, lambda_r=140, 
-                 gamma=1.7, F=None, sigma_F=None):
+    def __init__(self, h, k, I, sigma_I, D, lambda_r, gamma, F=None, sigma_F=None):
         self.h = np.array(h, int)
         self.k = np.array(k, int)
-        self.q = np.array(q, float)
         self.I = np.array(I, float)
-        if F is None:
-            self.F = sqrt(np.array(I, float))
-        self.phase = np.ones(self.F.size)
         self.sigma = np.array(sigma_I, float)
         self.latt_par = Parameters()
         self.latt_par.add('D', value=D, vary=True)
         self.latt_par.add('lambda_r', value=lambda_r, vary=True)
         self.latt_par.add('gamma', value=gamma, vary=True)
         self._set_qxqz()
-        self.edm = ElectronDensityMap(h, k, self.qx, self.qz, self.phase*self.F)
-       
-    def set_phase(self, h, k, phase):
-        self.h = h
-        self.k = k
-        self.phase = phase
-    
-    def _set_phase(self):
-        """Model method needs to be defined in the subclasses"""
-        self.phase = np.sign(self._model_F())
-        self.phase = self.phase.astype(int)
-        
-    def flip_phase(self, h, k):
-        """Flip the phase factor of the (h,k) order"""
-        self.phase[(self.h==h)&(self.k==k)] *= -1
-        
-    def get_phase(self, h, k):
-        """Get the phase factor of the (h,k) order"""
-        return self.phase[(self.h==h)&(self.k==k)]
-       
+        self.F = np.array(F, float)
+        self.sigma_F = np.array(sigma_F, float)
+               
     def apply_Lorentz_correction(self, I):
         """Apply the Lorentz correction to the input intensity and return it. 
         
@@ -261,7 +178,7 @@ class BaseRipple(object):
         normalized at (h=1,k=0).
         """
         model_F = self._model_F()
-        exp_F = self.F
+        exp_F = sqrt(self.I)
         # exp_F is normalized at (h=1,k=0) peak
         expF_10 = exp_F[(self.h==1)&(self.k==0)]
         exp_F = exp_F / expF_10 * 100
@@ -279,30 +196,7 @@ class BaseRipple(object):
         for a, b, c, d, e, f, g, h, i in zip(self.h, self.k, self.qx, self.qz, self.q, self._model_intrinsic_I(), self.I, self.sigma, chi_square):
             print("{0: 1d} {1: 1d} {2: .3f} {3: .3f} {4: .3f} {5: 10.0f} {6: 10.0f} {7: 9.0f} {8: 9.0f}".format(a, b, c, d, e, f, g, h, i))
         print("\nTotal chi^2 = {0: .0f}".format(np.sum(chi_square)))
-  
-    def report_calc_lattice(self):
-        """Show the calculated (fitted) q values for each peak along with 
-        the input data."""
-        print(" h  k  q_obs q_calc")
-        q_calc = np.sqrt(self.q_square())
-        for a, b, c, d in zip(self.h, self.k, self.q, q_calc):
-            print("{0: 1d} {1: 1d} {2: .3f} {3: .3f}".format(a, b, c, d))
-  
-    def report_lattice(self):
-        """Report the best fit lattice parameters"""
-        lmfit.report_fit(self.latt_par)
-        print("chisqr = {0:.3f}".format(self.lattice.chisqr))
           
-    def fit_lattice(self):
-        """Start a non-linear least squared fit for lattice parameters."""
-        self.lattice = minimize(self._residual_lattice, self.latt_par)    
-
-    def _residual_lattice(self, params):
-        """params is a dummy variable, necessary for lmfit.minimize to work."""
-        model = np.sqrt(self.q_square())
-        data = np.absolute(self.q)
-        return (model[self.mask] -data[self.mask])
-       
     def q_square(self):
         """Return q^2 = qx^2 + qz^2 using the values of lambda_r, D, and gamma."""
         return self.q_x()**2 + self.q_z()**2    
@@ -339,11 +233,15 @@ class BaseRipple(object):
         print("chisqr = {0:.3f}".format(self.edp.chisqr))
 
     def fit_edp(self):
-        """Start a non-linear least squared fit for electron density profile."""
+        """Start a non-linear least squared fit for electron density profile.
+        After the fit is completed, the form factor is updated."""
         self._set_qxqz()
         self.edp = minimize(self._residual_edp, self.edp_par)
-        self._set_phase()
-        self.edm.update(self.h, self.k, self.qx, self.qz, self.phase*self.F)
+        phase = np.sign(self._model_F())
+        phase = phase.astype(int)
+        self.F = phase * sqrt(self.I)
+        expF_10 = np.abs(self.F[(self.h==1)&(self.k==0)])
+        self.F = self.F / expF_10 * 100
     
     def _residual_edp(self, params):
         """Return the individual residuals."""
@@ -387,7 +285,7 @@ class BaseRipple(object):
         outfilename: output file name
         """
         model_F = self._model_F()
-        exp_F = self.F
+        exp_F = sqrt(self.I)
         # exp_F is normalized at (h=1,k=0) peak
         expF_10 = exp_F[(self.h==1)&(self.k==0)]
         exp_F = exp_F / expF_10 * 100
@@ -420,119 +318,32 @@ class BaseRipple(object):
             f.write(lmfit.fit_report(self.edp_par))
  
     def export_phases(self, filename):
-        """
-        Export an ASCII file containing the phases that reflect whatever phases
-        the object has, which are not necessarily the same as
-        the phases predicted by the model.
-        """
+        """Export an ASCII file containing phase factors predicted
+        by a model"""
+        phase = np.sign(self._model_F())
+        phase = phase.astype(int)
         with open(filename, 'w') as f:
             f.write("h k phase\n")
-            for a, b, c in zip(self.h, self.k, self.phase):
+            for a, b, c in zip(self.h, self.k, phase):
                 f.write("{0: 1d} {1: 1d} {2: 1d}\n".format(a, b, c))
-      
-    def export_EDM(self, filename="EDM.dat", xmin=-150, xmax=150, zmin=-100,
-                   zmax=100, N=201):
-        """Export the Fourier-reconstructed 2D electron density map (EDM) as 
-        an ASCII file consisting of three columns, x, z, and ED. 
-        Calculate ED at N points along x and N points along z. The units are 
-        in Angstrom.
-        """
-        self.edm.plot_EDM(xmin, xmax, zmin, zmax, N, filename)
-      
-    def plot_EDM(self, xmin=-150, xmax=150, zmin=-100, zmax=100, N=201):
-        """Plot an experimental 2D electron density map. Calculate
-        EDM on an N by N grid. The units are in Angstrom.
-        """    
-        self.edm.plot_EDM(xmin, xmax, zmin, zmax, N)
 
-#    def plot_model_EDM(self, xmin=-150, xmax=150, zmin=-100, zmax=100, N=201):
-#        """Plot a model 2D electron density map. Calculate
-#        EDM on an N by N grid. The units are in Angstrom.
-#        """    
-#        self.edm.plot_EDM(xmin, xmax, zmin, zmax, N, self._model_F())
+    def get_phase(self, h, k):
+        """Get the phase factor of the (h,k) order"""
+        return self.phase[(self.h==h)&(self.k==k)]
 
-    def export_EDP(self, filename="EDP.dat", center=(0,0), angle=-10, 
-                   length=60, stepsize=0.5):
-        self.edm.plot_EDP_angle(center, angle, length, stepsize, filename)
-  
-#    def export_model_EDP(self, filename="model_EDP.dat", center=(0.0), angle=-10, 
-#                         length=60, stepsize=0.5):
-#        self.edm.plot_EDP_angle(center, angle, length, stepsize, self._model_F(), 
-#                                filename)
-  
-    def plot_EDP(self, center=(0,0), angle=-10, length=60, stepsize=0.5):
-        """Plot EDP along a line making an angle in degrees with respect to 
-        the stacking z direction. Positive angle means the line is tilted in 
-        the CW direction from the z-axis in the x-z plane. center specifies 
-        about what position the plot is made. 
-        Call plt.show() or plt.show(block=False) to actually display the plot.
-	    
-        Parameters
-        ==========
-        length: the total length in Angstrom, symmetric about center.
-        stepsize: the step size in Angstrom in x.
-          
-        Example 
-        =======
-        plot_EDP(center=(0,0), angle=-10, length=60, stepsize=1)
-          
-        will plot the EDP about (x,z)=(0,0), along a line making 10 degrees
-        in CCW from the z-axis, with +/-30 Angstrom above and below the
-        center, calculated every Angstrom.
-        """
-        return self.edm.plot_EDP_angle(center, angle, length, stepsize)
-    
-    def plot_EDP_between_two_points(self, start, end, N):
-        """Plot an experimental EDP along a line connecting two points 
-        secified by start and end, on N points. 
-        """  
-        return self.edm.plot_EDP_endpoints(start, end, N)
-
-    def export_EDP_between_two_points(self, filename, start, end, N):
-        """Export an experimental EDP along a line connecting two points 
-        secified by start and end, on N points, as an ASCII file.
-        """
-        self.edm.plot_EDP_endpoints(start, end, N, filename)
-    
-    def get_EDP_between_two_points(self, start, end, N):
-        return self.edm.get_EDP_endpoints(start, end, N)
-        
-    def get_EDP_angle(self, center, angle, length, stepsize):
-        return self.edm.get_EDP_angle(center, angle, length, stepsize)
-        
-#    def plot_model_EDP(self, center=(0,0), angle=0, length=60, stepsize=0.5):
-#        self.edm.plot_EDP_angle(center, angle, length, stepsize, self._model_F())
-        
-    def export_headgroup_positions(self, filename="temp.txt"): 
-        """Export an ASCII file containing headgroup positions in both lower
-        and upper leaflets. The first column is for x, the second for
-        lower leaflet, and the third for upper leaflet. This method assumes
-        that headgroups have the maximum electron density.    
-        """
-        self.edm.F = self.phase * self.F
-        self.edm.export_headgroup_positions(self.latt_par['lambda_r'].value, 
-                                            self.latt_par['D'].value, 
-                                            self.edp_par['A'].value, 
-                                            self.edp_par['xM'].value, 
-                                            filename)
-
-    def export_methyl_positions(self, filename="temp.txt"):
-        """Export an ASCII file containing teminal methyl positions. 
-        This method assumes that terminal methyls have the minimum electron density.       
-        """
-        self.edm.F = self.phase * self.F
-        self.edm.export_methyl_positions(self.latt_par['lambda_r'].value, 
-                                         self.latt_par['D'].value, 
-                                         self.edp_par['A'].value, 
-                                         self.edp_par['xM'].value, 
-                                         filename)
-            
-                          
+    def get_normalized_exp_F(self):
+        exp_F = sqrt(self.I)
+        # exp_F is normalized at (h=1,k=0) peak
+        expF_10 = exp_F[(self.h==1)&(self.k==0)]
+        exp_F = exp_F / expF_10 * 100
+        return exp_F
+           
+                                
 ###############################################################################
 class Sawtooth(BaseRipple):
-  def __init__(self, h, k, q, I, sigma, D=57.8, lambda_r=145, gamma=1.71, 
+  def __init__(self, h, k, I, sigma, D=57.8, lambda_r=145, gamma=1.71, 
                xM=100, A=20):
-    super(Sawtooth, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma)
+    super(Sawtooth, self).__init__(h, k, I, sigma, D, lambda_r, gamma)
     self.edp_par = Parameters()
     self.edp_par.add('xM', value=xM, vary=True)
     self.edp_par.add('A', value=A, vary=True)
@@ -633,12 +444,12 @@ class MDF(SDF):
 
 ###############################################################################
 class S2G(Sawtooth):
-  def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
+  def __init__(self, h, k, I, sigma, D=58, lambda_r=140, gamma=1.7, 
                xM=100, A=20.27, 
                rho_H1=2.21, Z_H1=20.00, sigma_H1=3.33,
                rho_H2=2.22, Z_H2=22.22, sigma_H2=3.33,
                rho_M=1, sigma_M=3, psi=0.087, common_scale=0.1):
-    super(S2G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, xM, A)
+    super(S2G, self).__init__(h, k, I, sigma, D, lambda_r, gamma, xM, A)
     self.edp_par.add('rho_H1', value=rho_H1, vary=True, min=0)
     self.edp_par.add('Z_H1', value=Z_H1, vary=True, min=0, max=30)
     self.edp_par.add('sigma_H1', value=sigma_H1, vary=True, min=0)
@@ -708,12 +519,12 @@ class S2G(Sawtooth):
 
 ###############################################################################
 class M2G(S2G):
-  def __init__(self, h, k, q, I, sigma, D=58, lambda_r=140, gamma=1.7, 
+  def __init__(self, h, k, I, sigma, D=58, lambda_r=140, gamma=1.7, 
                xM=100, A=20, f1=1, f2=0, 
                rho_H1=2.21, Z_H1=20.24, sigma_H1=3.33,
                rho_H2=2.22, Z_H2=20.22, sigma_H2=3.33, 
                rho_M=1, sigma_M=3, psi=0.087, common_scale=0.1):
-    super(M2G, self).__init__(h, k, q, I, sigma, D, lambda_r, gamma, xM, A, 
+    super(M2G, self).__init__(h, k, I, sigma, D, lambda_r, gamma, xM, A, 
                               rho_H1, Z_H1, sigma_H1, rho_H2, Z_H2, sigma_H2, 
                               rho_M, sigma_M, psi, common_scale)
     self.edp_par['f1'].value = f1

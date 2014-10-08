@@ -13,7 +13,7 @@ class ElectronDensityMap(object):
         """Input is Data object"""
         self.data = data
                                     
-    def get_EDM(self, xmin, xmax, zmin, zmax, N, data):
+    def get_EDM(self, xmin, xmax, zmin, zmax, N, data=None):
         """Fourier-reconstruct a 2D map of the electron density profile and return
         as Z on (X,Y) grids. Calculate EDP at N points along x and N points along z. 
         The units are in Angstrom.
@@ -23,6 +23,8 @@ class ElectronDensityMap(object):
         rho_xz = []
         xgrid = np.linspace(xmin, xmax, num=N)
         zgrid = np.linspace(zmin, zmax, num=N)
+        if data is None:
+            data = self.data
         F = data.form_factors()
         qx, qz = data.qx_qz()
         for x in xgrid:
@@ -33,15 +35,15 @@ class ElectronDensityMap(object):
         X, Y, Z= rho_xz[:,0], rho_xz[:,1], rho_xz[:,2]
         return X, Y, Z
     
-    def get_EDP_endpoints(self, start, end, N, data):
+    def get_EDP_endpoints(self, start, end, N, data=None):
         x0, z0 = start
         x1, z1 = end
         xpoints = np.linspace(x0, x1, N)
         zpoints = np.linspace(z0, z1, N)
-        X, Z, DIST, EDP = self._calc_EDP(xpoints, zpoints, start)
+        X, Z, DIST, EDP = self._calc_EDP(xpoints, zpoints, start, data)
         return X, Z, DIST, EDP
         
-    def get_EDP_angle(self, center, angle, length, stepsize, data):
+    def get_EDP_angle(self, center, angle, length, stepsize, data=None):
         x, z = center
         N = length/stepsize + 1
         angle = angle*pi/180 
@@ -55,14 +57,16 @@ class ElectronDensityMap(object):
             intercept = z - slope*x
             xpoints = np.linspace(x-length*sin(angle)/2, x+length*sin(angle)/2, N)
             zpoints = slope * xpoints + intercept
-        X, Z, DIST, EDP = self._calc_EDP(xpoints, zpoints, center)
+        X, Z, DIST, EDP = self._calc_EDP(xpoints, zpoints, center, data)
         return X, Z, DIST, EDP          
             
-    def _calc_EDP(self, xpoints, zpoints, center, data):
+    def _calc_EDP(self, xpoints, zpoints, center, data=None):
         xM, z0 = center
         rho = []
-        F = self.data.form_factors()
-        qx, qz = self.data.qx_qz()
+        if data is None:
+            data = self.data
+        F = data.form_factors()
+        qx, qz = data.qx_qz()
         for x, z in zip(xpoints, zpoints):
             tmp = F * np.cos(qx*x+qz*z)
             dist = np.sign(z-z0)*np.sqrt((x-xM)**2 + (z-z0)**2)
