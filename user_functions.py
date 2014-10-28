@@ -6,9 +6,9 @@ from edm import *
 from ripple import *
 from data import *
 
-#data = Data()
-#rip = M2G()
-#edm = ElectronDensityMap(data)
+data = Data()
+rip = None
+edm = ElectronDensityMap(data)
 
 def load_data(filename):
     """Load intensity data"""

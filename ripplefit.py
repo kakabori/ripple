@@ -1,7 +1,4 @@
-import edm, ripple, data
-data = data.Data()
-rip = ripple.M2G()
-edm = edm.ElectronDensityMap(data)
+import ripple as r
 from user_functions import *
 
 print("""
@@ -16,6 +13,5 @@ For plot and export files, see user_manual.txt.
 
 infilename = 'intensity/085_h9_ver6.dat'
 load_data(infilename)
-#f.load_data(infilename)
 
 
