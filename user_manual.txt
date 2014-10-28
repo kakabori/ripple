@@ -1,3 +1,7 @@
+Run the ripplefit program by entering in a terminal,
+
+ipython ripplefit.py
+
 Data fitting
 ============
 load_data()

@@ -1,5 +1,5 @@
-import ripple as *
-import user_functions as *
+from ripple import *
+from user_functions import *
 
 m2g = M2G(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714,
           xM=90, A=25, f1=1.5, f2=-20, 
