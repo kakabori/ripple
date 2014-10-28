@@ -519,7 +519,8 @@ class S2G(Sawtooth):
 
 ###############################################################################
 class M2G(S2G):
-  def __init__(self, h, k, I, sigma, D=58, lambda_r=140, gamma=1.7, 
+  def __init__(self, h=[], k=[], I=[], sigma=[],
+               D=58, lambda_r=140, gamma=1.7, 
                xM=100, A=20, f1=1, f2=0, 
                rho_H1=2.21, Z_H1=20.24, sigma_H1=3.33,
                rho_H2=2.22, Z_H2=20.22, sigma_H2=3.33, 
