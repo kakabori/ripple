@@ -1,4 +1,3 @@
-import ripple as r
 from user_functions import *
 
 print("""
