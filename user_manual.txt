@@ -1,13 +1,12 @@
 Run the ripplefit program by entering in a terminal,
+ipython ripplefit.py -i
 
-ipython ripplefit.py
 
 Data fitting
 ============
 load_data()
 
-edp_fit()
-
+fit_edp()
 
 
 Export to a text file
@@ -26,3 +25,8 @@ plot_EDM(xmin, xmax, zmin, zmax, N)
 plot_EDP_angle(center, angle, length, stepsize)
 
 plot_EDP_endpoints(start, end, N)
+
+
+Some random functionality
+=========================
+invert_phase(h, k)
