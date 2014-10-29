@@ -7,18 +7,18 @@ from ripple import *
 from data import *
 
 data = Data()
-rip = None
 edm = ElectronDensityMap(data)
+rip = M2G(h=[], k=[], I=[], sigma=[], D=57.8, lambda_r=145.0, gamma=1.714,
+          xM=90, A=25, f1=1.5, f2=-20, 
+          rho_H1=9.91, Z_H1=20, sigma_H1=2.94,
+          rho_H2=7.27, Z_H2=20, sigma_H2=1.47, 
+          rho_M=10.91, sigma_M=1.83, psi=0.1, common_scale=3)
 
 def load_data(filename):
     """Load intensity data"""
     global rip
     h, k, q, I, sigma = read_data_5_columns(filename)
-    rip = M2G(h, k, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714,
-              xM=90, A=25, f1=1.5, f2=-20, 
-              rho_H1=9.91, Z_H1=20, sigma_H1=2.94,
-              rho_H2=7.27, Z_H2=20, sigma_H2=1.47, 
-              rho_M=10.91, sigma_M=1.83, psi=0.1, common_scale=3)
+    rip.update(h=h, k=k, I=I, sigma_I=sigma)
     rip.edp_par['f2'].vary = True
     rip.edp_par['rho_H1'].vary = False
     rip.edp_par['sigma_H1'].vary = False
@@ -44,7 +44,7 @@ def fit_edp():
     rip.report_edp()
     data.update(rip.h, rip.k, rip.qx, rip.qz, rip.F) 
 
-def export_EDM(xmin=-150, xmax=150, zmin=-100, zmax=100, N=301, filename="EDM.dat"):
+def export_EDM(filename="EDM.dat", xmin=-150, xmax=150, zmin=-100, zmax=100, N=301):
     """Export EDM as an ASCII file"""
     global data
     global edm
@@ -70,7 +70,7 @@ def plot_EDM(xmin=-150, xmax=150, zmin=-100, zmax=100, N=301):
     #imgplot = plt.imshow(rotate_Z, cmap='gray')
 #    return imgplot 
 
-def export_EDP_endpoints(start, end, N, filename):
+def export_EDP_endpoints(filename="EDP.dat", start, end, N):
     global data
     global edm
     X, Z, DIST, EDP = edm.get_EDP_endpoints(start, end, N, data)
@@ -85,7 +85,7 @@ def plot_EDP_endpoints(start, end, N):
     X, Z, DIST, EDP = edm.get_EDP_endpoints(start, end, N, data)
     _plot_EDP(DIST, EDP) 
     
-def export_EDP_angle(center, angle, length, stepsize, filename):
+def export_EDP_angle(filename="EDP.dat", center, angle, length, stepsize):
     global data
     global edm
     X, Z, DIST, EDP = edm.get_EDP_angle(center, angle, length, stepsize, data)

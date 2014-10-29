@@ -150,6 +150,12 @@ class BaseRipple(object):
         self._set_qxqz()
         self.F = np.array(F, float)
         self.sigma_F = np.array(sigma_F, float)
+    
+    def update(self, h, k, I, sigma_I):
+        self.h = np.array(h, int)
+        self.k = np.array(k, int)
+        self.I = np.array(I, float)
+        self.sigma = np.array(sigma_I, float)
                
     def apply_Lorentz_correction(self, I):
         """Apply the Lorentz correction to the input intensity and return it. 

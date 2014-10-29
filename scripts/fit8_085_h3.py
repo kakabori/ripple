@@ -2,7 +2,7 @@
 Fits truncated data set, which can be directly compared to WackWebb results
 """
 
-from ripintensity import *
+from ripple import *
 
 # read data to be fitted
 infilename = 'intensity/085_h9_ver5.dat'

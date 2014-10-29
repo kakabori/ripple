@@ -1,13 +1,16 @@
-from ripplefit import *
+import sys
+sys.path.append('/home/unkokusei/prog/ripple/src')
+
+from ripple import *
 
 # read data to be fitted
 #infilename = 'intensity/085_h9_ver6.dat'
-infilename = 'intensity/085_h9_ver4.dat'
-h, k, q, I, sigma, combined = read_data_5_columns(infilename)
+infilename = '../intensity/085_h9_ver4.dat'
+h, k, q, I, sigma = read_data_5_columns(infilename)
 
 ###############################################################################
 # Work on M2G
-m2g = M2G(h, k, q, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714,
+m2g = M2G(h, k, I, sigma, D=57.8, lambda_r=145.0, gamma=1.714,
           xM=90, A=25, f1=1.5, f2=-20, 
           rho_H1=9.91, Z_H1=20, sigma_H1=2.94,
           rho_H2=7.27, Z_H2=20, sigma_H2=1.47, 
